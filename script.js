@@ -28,7 +28,7 @@ var userStream;
 var offerSent;
 var connections = {};
 var sock = new WebSocket(
-	"ws://localhost:8888/"
+	"ws://" + document.domain + ":8888/"
 );
 
 function onIceCandidate(event){
