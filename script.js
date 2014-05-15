@@ -86,7 +86,7 @@ sock.onmessage = function(event) {
 			}, null, {
 				optional: [],
 				mandatory: {
-					OfferToReceiveAudio: false,
+					OfferToReceiveAudio: true,
 					OfferToReceiveVideo: true
 				}
 			});
@@ -101,7 +101,7 @@ sock.onmessage = function(event) {
 				}, null, {
 					optional: [],
 					mandatory: {
-						OfferToReceiveAudio: false,
+						OfferToReceiveAudio: true,
 						OfferToReceiveVideo: true
 					}
 				});
@@ -119,7 +119,7 @@ sock.onopen = function (event) {
 
 navigator.webkitGetUserMedia({
 	video: true,
-	audio: false
+	audio: true
 }, function(stream){
 	userStream = stream;
 	askPeersForOffers();
