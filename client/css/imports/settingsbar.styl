@@ -1,0 +1,65 @@
+.settingsbar
+	height: 1.5em
+	padding: .5em .5em
+	background: #777
+
+	.btn
+		width: 2em
+		height: 100%
+
+		margin: 0 .25em
+
+		background-repeat: no-repeat
+		background-size: 80% 80%
+		background-position: center
+
+		display: inline-block
+
+		position: relative
+
+		&[data-pressed=false]
+			background-color: #fbb
+
+		&[data-pressed=true]
+			background-color: #bfb
+
+		&[data-cmd=mic]
+			&[data-pressed=false]
+				background-image: url('images/mic-off.svg')
+
+			&[data-pressed=true]
+				background-image: url('images/mic-on.svg')
+
+			position: relative
+			overflow: hidden
+
+			.db
+				position: absolute
+				top: 0
+				bottom: 0
+				background-color: rgba(0,0,0,0.33)
+				pointer-events: none
+
+		&[data-cmd=cam], &[data-cmd=screen]
+		
+			video
+				border: 0.2em solid rgba(0,0,0, 0.1)
+				left: -.2em
+
+				position: absolute
+				top: 100%
+				margin-top: 0.4em
+				max-width: 8em
+
+				transition: .1s 0 all
+
+			&:not(:hover)
+				video
+					visibility: hidden
+					opacity: 0
+
+		&[data-cmd=cam]
+			background-image: url('images/cam.svg')
+
+		&[data-cmd=screen]
+			background-image: url('images/screen.svg')
