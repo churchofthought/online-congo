@@ -2,6 +2,12 @@
   "name": "online-congo",
   "version": "0.0.1",
   "dependencies": {
-    "websocket": "*"
+    "websocket": "*",
+    "node-static": "*",
+	"grunt" : "*",
+	"grunt-cli" : "*",
+	"grunt-contrib-concat" : "*",
+	"grunt-contrib-watch" : "*",
+	"grunt-contrib-stylus" : "*"
   }
 }
