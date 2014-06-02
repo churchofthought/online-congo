@@ -115,6 +115,14 @@ Peer.prototype.onStreamsChanged = function(){
 		));
 		this.$streams.appendChild($stream);
 	}).bind(this));
+
+	var audioTrack = stream.getAudioTracks()[0];
+	if (audioTrack){
+		var $stream = new Audio();
+		$stream.autoplay = true;
+		$stream.src = URL.createObjectURL(stream);
+		this.$streams.appendChild($stream);
+	}
 };
 
 Peer.prototype.processMsg = function(msg){
