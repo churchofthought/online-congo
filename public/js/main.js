@@ -293,6 +293,8 @@ Peer.prototype.createDOM = function(){
 	this.$root = document.createElement("div");
 	this.$root.className = "peer";
 
+	this.$root.dataset.vids = 0;
+
 	this.$uid = this.$root.appendChild(document.createElement("span"));
 	this.$uid.className = "span";
 	this.$uid.textContent = this.uid;
