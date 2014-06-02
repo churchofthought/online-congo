@@ -1,3 +1,6 @@
+var chat = [];
+
+
 var websocket = require('websocket');
 var WebSocketServer = websocket.server;
 var WebSocketConnection = websocket.connection;

@@ -37,6 +37,11 @@ Peer.prototype.createDOM = function(){
 
 	this.$audio = this.$root.appendChild(document.createElement("audio"));
 	gPeers.$root.appendChild(this.$root);
+
+
+	this.$lroot = document.createElement("li");
+	this.$lroot.className = "peer";
+	gSidebar.$peerlist.appendChild(this.$lroot);
 }
 
 Peer.prototype.createPeerConnection = function(){

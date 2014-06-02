@@ -8,7 +8,7 @@ Peers.prototype.createDOM = function(){
 	this.$root = document.createElement("div");
 	this.$root.className = 'peers';
 	
-	document.body.appendChild(this.$root);
+	gApp.$mainTable.appendChild(this.$root);
 };
 
 Peers.prototype.processMsg = function(uid, msg){
