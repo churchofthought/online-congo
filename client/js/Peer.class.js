@@ -19,6 +19,8 @@ function Peer(uid){
 	this.createPeerConnection();
 
 	this.createDOM();
+
+	this.onStreamsChanged = this.onStreamsChanged.bind(this);
 }
 
 Peer.prototype.createDOM = function(){
@@ -77,10 +79,8 @@ Peer.prototype.onIceCandidate = function(e){
 
 Peer.prototype.onAddStream = function(e){
 	var stream = e.stream;
-	(stream.onaddtrack =
-	stream.onremovetrack = 
-		this.onStreamsChanged.bind(this)
-	)();
+	stream.onaddtrack = stream.onremovetrack = this.onStreamsChanged;
+	this.onStreamsChanged();
 };
 
 Peer.prototype.onRemoveStream = function(e){
