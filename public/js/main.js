@@ -410,6 +410,10 @@ Peer.prototype.onStreamsChanged = function(){
 Peer.prototype.processMsg = function(msg){
 	switch(msg.type){
 
+		case 'disconnected':
+			this.destroy();
+		break;
+
 		case "uinfo":
 			this.name = msg.name;
 			this.onNameChanged();
@@ -489,7 +493,15 @@ Peers.prototype.createDOM = function(){
 };
 
 Peers.prototype.processMsg = function(uid, msg){
+
+	var sender = this.peers[uid];
+
+
 	switch(msg.type){
+		case 'disconnected':
+		if (!sender) return;
+		break;
+
 		case 'chat':
 
 		return;
@@ -504,7 +516,10 @@ Peers.prototype.processMsg = function(uid, msg){
 		return;
 	}
 
-	(this.peers[uid] || (this.peers[uid] = new Peer(uid))).processMsg(msg);
+	if (!sender)
+		sender = this.peers[uid] = new Peer(uid);
+
+	sender.processMsg(msg);
 };
 
 Peers.prototype.onLocalStreamChanged = function(){

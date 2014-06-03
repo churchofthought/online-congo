@@ -8,11 +8,6 @@ var fs = require('fs');
 
 var staticServer = new (require('node-static').Server)('./public');
 
-WebSocketConnection.prototype.uid = function(){
-	return this.socket.remoteAddress + ':' + this.socket.remotePort;
-}
-
-
 var connections = {};
 
 
@@ -44,10 +39,19 @@ new WebSocketServer({
 	autoAcceptConnections: true,
 	httpServer: httpServer
 }).on('connect', function(c){
+	c.uid = c.socket.remoteAddress + ':' + c.socket.remotePort;
 	c.on('message', gotMsg);
-	connections[c.uid()] = c;
+	connections[c.uid] = c;
 }).on('close', function(c){
-	delete connections[c.uid()];
+	delete connections[c.uid];
+
+	for (var k in connections)
+		connections[k].sendUTF(JSON.stringify({
+			uid: c.uid,
+			msg: {
+				type: 'disconnected'
+			}
+		}));
 });
 
 function gotMsg(wrapper){
@@ -57,7 +61,7 @@ function gotMsg(wrapper){
 
 	var o = {
 		time: Date.now(),
-		uid: this.uid(),
+		uid: this.uid,
 		msg: msg
 	};
 

@@ -136,6 +136,10 @@ Peer.prototype.onStreamsChanged = function(){
 Peer.prototype.processMsg = function(msg){
 	switch(msg.type){
 
+		case 'disconnected':
+			this.destroy();
+		break;
+
 		case "uinfo":
 			this.name = msg.name;
 			this.onNameChanged();
