@@ -82,17 +82,22 @@ function gotMsg(wrapper){
 		switch (msg.type){
 			case "kick":
 			msg.uids.forEach(function(uid){
-				connections[uid].close();
+				var connection = connections[uid];
+				if (connection)
+					connection.close();
 				delete connections[uid]; // might not be needed
 			});
 			break;
 		}
-		for (var k in connections)
+		for (var k in connections){
 			connections[k].sendUTF(data);
+		}
 		break;
 
 		default:
-		connections[uid].sendUTF(data);
+		var connection = connections[uid];
+		if (connection)
+			connection.sendUTF(data);
 	}	
 }
 
