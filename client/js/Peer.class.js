@@ -15,13 +15,17 @@ var rtcConstraints = {
 function Peer(uid){
 
 	this.uid = uid;
+	this.name = "";
 
 	this.createPeerConnection();
 
 	this.createDOM();
 
 	this.onStreamsChanged = this.onStreamsChanged.bind(this);
-}
+
+	this.send(gUser.getInfo());
+	this.sendOffer();
+};
 
 Peer.prototype.createDOM = function(){
 	this.$root = document.createElement("div");
@@ -29,9 +33,9 @@ Peer.prototype.createDOM = function(){
 
 	this.$root.dataset.vids = 0;
 
-	this.$uid = this.$root.appendChild(document.createElement("span"));
-	this.$uid.className = "span";
-	this.$uid.textContent = this.uid;
+	this.$name = this.$root.appendChild(document.createElement("div"));
+	this.$name.className = "name";
+	this.$name.textContent = this.name;
 
 	this.$ava = this.$root.appendChild(document.createElement("div"));
 	this.$ava.className = 'ava';
@@ -43,9 +47,13 @@ Peer.prototype.createDOM = function(){
 	gPeers.$root.appendChild(this.$root);
 
 
-	this.$lroot = document.createElement("li");
+	this.$lroot = document.createElement("div");
 	this.$lroot.className = "peer";
 	gSidebar.$peerlist.appendChild(this.$lroot);
+};
+
+Peer.prototype.onNameChanged = function(){
+	this.$name.textContent = this.name;
 }
 
 Peer.prototype.createPeerConnection = function(){
@@ -128,6 +136,11 @@ Peer.prototype.onStreamsChanged = function(){
 Peer.prototype.processMsg = function(msg){
 	switch(msg.type){
 
+		case "uinfo":
+			this.name = msg.name;
+			this.onNameChanged();
+		break;
+
 		case "answer":
 			this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg), function(){});
 		break;
@@ -139,6 +152,7 @@ Peer.prototype.processMsg = function(msg){
 		break;
 
 		case "reqoffer":
+			this.sendUserInfo();
 			this.sendOffer();
 		break;
 
@@ -152,6 +166,12 @@ Peer.prototype.processMsg = function(msg){
 			}).bind(this));
 		break;
 	}
+};
+
+Peer.prototype.sendUserInfo = function(){
+	var info = gUser.getInfo();
+	info.type = 'uinfo';
+	this.send(info);
 }
 
 Peer.prototype.sendOffer = function(){
@@ -160,24 +180,24 @@ Peer.prototype.sendOffer = function(){
 			this.send(offer);
 		}).bind(this));
 	}).bind(this), null, rtcConstraints);
-}
+};
 
 Peer.prototype.onLocalStreamChanged = function(){
 	this.sendOffer();
-}
+};
 
 Peer.prototype.setSelected = function(selected){
 	this.$root.dataset.selected = selected;
-}
+};
 
 Peer.prototype.onIceConnectionStateChange = function(){
 	if (this.peerConnection.iceConnectionState == "disconnected")
 		this.destroy();
-}
+};
 
 Peer.prototype.destroy = function(){
 	gPeers.$root.removeChild(this.$root);
 
 	this.peerConnection.close();
 	delete gPeers.peers[this.uid];
-}
+};

@@ -4,7 +4,6 @@ var gPeers;
 var gLocalMediaStream;
 var gSelection;
 var gContextMenu;
-var gUID;
 var gSettingsBar;
 var gSidebar;
 
@@ -12,6 +11,8 @@ function AppController(){
 	gApp = this;
 
 	gSock = this.sock = new Sock();
+	gUser = this.user = new User();
+
 	this.sock.addEventListener('message', this.onSockMsg.bind(this)); 
 	this.sock.addEventListener('open', this.onSockOpen.bind(this));
 
@@ -40,7 +41,8 @@ AppController.prototype.createMainTable = function(){
 
 AppController.prototype.onSockOpen = function(){
 	this.sock.sendAll({
-		type: 'reqoffer'
+		type: 'uinfo',
+		name: gUser.name
 	});
 };
 
@@ -49,7 +51,13 @@ AppController.prototype.onSockMsg = function(e){
 	var uid = wrapper.uid;
 	var msg = wrapper.msg;
 
-	this.peers.processMsg(uid, msg);
+	if (msg instanceof Array){
+		msg.forEach((function(m){
+			this.peers.processMsg(uid, m);
+		}).bind(this));
+	}
+	else
+		this.peers.processMsg(uid, msg);
 };
 
 AppController.prototype.kick = function(sel){
@@ -67,7 +75,7 @@ function ContextMenu(){
 }
 
 ContextMenu.prototype.createDOM = function(){
-	this.$root = document.createElement("ul");
+	this.$root = document.createElement("div");
 	this.$root.className = 'ctx';
 	this.$root.dataset.visible = false;
 
@@ -110,7 +118,7 @@ ContextMenu.prototype.onWindowClick = function(e){
 };
 
 ContextMenu.prototype.addCommand = function(label, cmd){
-	var $li = document.createElement("li");
+	var $li = document.createElement("div");
 	$li.dataset.cmd = cmd;
 	$li.textContent = label;
 
@@ -281,13 +289,17 @@ var rtcConstraints = {
 function Peer(uid){
 
 	this.uid = uid;
+	this.name = "";
 
 	this.createPeerConnection();
 
 	this.createDOM();
 
 	this.onStreamsChanged = this.onStreamsChanged.bind(this);
-}
+
+	this.send(gUser.getInfo());
+	this.sendOffer();
+};
 
 Peer.prototype.createDOM = function(){
 	this.$root = document.createElement("div");
@@ -295,9 +307,9 @@ Peer.prototype.createDOM = function(){
 
 	this.$root.dataset.vids = 0;
 
-	this.$uid = this.$root.appendChild(document.createElement("span"));
-	this.$uid.className = "span";
-	this.$uid.textContent = this.uid;
+	this.$name = this.$root.appendChild(document.createElement("div"));
+	this.$name.className = "name";
+	this.$name.textContent = this.name;
 
 	this.$ava = this.$root.appendChild(document.createElement("div"));
 	this.$ava.className = 'ava';
@@ -309,9 +321,13 @@ Peer.prototype.createDOM = function(){
 	gPeers.$root.appendChild(this.$root);
 
 
-	this.$lroot = document.createElement("li");
+	this.$lroot = document.createElement("div");
 	this.$lroot.className = "peer";
 	gSidebar.$peerlist.appendChild(this.$lroot);
+};
+
+Peer.prototype.onNameChanged = function(){
+	this.$name.textContent = this.name;
 }
 
 Peer.prototype.createPeerConnection = function(){
@@ -394,6 +410,11 @@ Peer.prototype.onStreamsChanged = function(){
 Peer.prototype.processMsg = function(msg){
 	switch(msg.type){
 
+		case "uinfo":
+			this.name = msg.name;
+			this.onNameChanged();
+		break;
+
 		case "answer":
 			this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg), function(){});
 		break;
@@ -405,6 +426,7 @@ Peer.prototype.processMsg = function(msg){
 		break;
 
 		case "reqoffer":
+			this.sendUserInfo();
 			this.sendOffer();
 		break;
 
@@ -418,6 +440,12 @@ Peer.prototype.processMsg = function(msg){
 			}).bind(this));
 		break;
 	}
+};
+
+Peer.prototype.sendUserInfo = function(){
+	var info = gUser.getInfo();
+	info.type = 'uinfo';
+	this.send(info);
 }
 
 Peer.prototype.sendOffer = function(){
@@ -426,27 +454,27 @@ Peer.prototype.sendOffer = function(){
 			this.send(offer);
 		}).bind(this));
 	}).bind(this), null, rtcConstraints);
-}
+};
 
 Peer.prototype.onLocalStreamChanged = function(){
 	this.sendOffer();
-}
+};
 
 Peer.prototype.setSelected = function(selected){
 	this.$root.dataset.selected = selected;
-}
+};
 
 Peer.prototype.onIceConnectionStateChange = function(){
 	if (this.peerConnection.iceConnectionState == "disconnected")
 		this.destroy();
-}
+};
 
 Peer.prototype.destroy = function(){
 	gPeers.$root.removeChild(this.$root);
 
 	this.peerConnection.close();
 	delete gPeers.peers[this.uid];
-}
+};
 function Peers(){
 	this.peers = {};
 
@@ -462,6 +490,10 @@ Peers.prototype.createDOM = function(){
 
 Peers.prototype.processMsg = function(uid, msg){
 	switch(msg.type){
+		case 'chat':
+
+		return;
+
 		case 'kick':
 		msg.uids.forEach((function(uid){
 			var peer = this.peers[uid];
@@ -470,10 +502,6 @@ Peers.prototype.processMsg = function(uid, msg){
 			peer.destroy();
 		}).bind(this));
 		return;
-
-		case 'reqoffer':
-		if (this.peers[uid]) return;
-		break;
 	}
 
 	(this.peers[uid] || (this.peers[uid] = new Peer(uid))).processMsg(msg);
@@ -602,6 +630,20 @@ SettingsBar.prototype.createDOM = function(){
 	this.$camToggle = this.addToggleButton("cam");
 	this.$screenToggle = this.addToggleButton("screen");
 
+	this.hideMenuBtn = this.hideMenuBtn.bind(this);
+
+	this.$menuBtn = this.$root.appendChild(document.createElement("div"));
+	this.$menuBtn.className = "menubtn btn";
+	this.$menuBtn.dataset.btntype = "menu";
+
+	this.$menuBtn.addEventListener('click', this.onMenuBtnClicked.bind(this));
+
+	this.$menu = this.$menuBtn.appendChild(document.createElement("div"));
+	this.$menu.className = 'menu';
+
+
+	this.addMenuCommand("Change Nickname", "changenick");
+
 	document.body.appendChild(
 		this.$root
 	);
@@ -609,9 +651,45 @@ SettingsBar.prototype.createDOM = function(){
 
 SettingsBar.prototype.onBarClick = function(e){
 	var $target = e.target;
-	if ($target.dataset.btntype == 'toggle')
+	switch ($target.dataset.btntype){
+		case "toggle":
 		this.onToggleClicked($target);
+		break;
+
+		case "menuitem":
+		this.onMenuItemClicked($target);
+	}
 };
+
+SettingsBar.prototype.onMenuBtnClicked = function(e){
+	var $target = e.target;
+
+	if ($target.dataset.cmd){
+		this.onMenuItemClicked($target);
+		return;
+	}
+
+	if ($target != this.$menuBtn) return;
+
+	if ((this.$menuBtn.dataset.showmenu = !(this.$menuBtn.dataset.showmenu == "true"))){
+		setTimeout((function(){
+			window.addEventListener('click', this.hideMenuBtn);
+		}).bind(this), 0);
+	}
+};
+
+SettingsBar.prototype.hideMenuBtn = function(){
+	window.removeEventListener('click', this.hideMenuBtn);
+	this.$menuBtn.dataset.showmenu = false;
+}
+
+SettingsBar.prototype.onMenuItemClicked = function($item){
+	switch ($item.dataset.cmd){
+		case "changenick":
+		gUser.promptToChangeName();
+		break;
+	}
+}
 
 SettingsBar.prototype.onToggleClicked = function($btn){
 	var cmd = $btn.dataset.cmd;
@@ -633,6 +711,13 @@ SettingsBar.prototype.addToggleButton = function(cmd, cb){
 
 	return $btn;
 };
+
+SettingsBar.prototype.addMenuCommand = function(label, cmd){
+	var $opt = document.createElement("div");
+	$opt.textContent = label;
+	$opt.dataset.cmd = cmd;
+	this.$menu.appendChild($opt);
+};
 function Sidebar(){
 	this.createDOM();
 }
@@ -642,7 +727,7 @@ Sidebar.prototype.createDOM = function(){
 	this.$root.className = 'sidebar';
 
 	this.$peerlist = this.$root.appendChild(
-		document.createElement("ul")
+		document.createElement("div")
 	);
 	this.$peerlist.className = 'peerlist';
 
@@ -652,6 +737,10 @@ function Sock(){
 	this.sock = new WebSocket(
 		"wss://" + document.domain
 	);
+};
+
+Sock.prototype.ready = function(){
+	return this.sock.readyState == WebSocket.prototype.OPEN;
 };
 
 Sock.prototype.send = function(uid, msg){
@@ -676,6 +765,46 @@ Sock.prototype.addEventListener = function(type, cb){
 Sock.prototype.removeEventListener = function(type, cb){
 	this.sock.removeEventListener(type, cb);
 };
+function User(){
+	this.restore();
+}
+
+User.prototype.getInfo = function(){
+	return {
+		type: 'uinfo',
+		name: this.name
+	};
+};
+
+User.prototype.restore = function(){
+	this.setName(localStorage.name);
+	
+	if (!this.name)
+		this.promptToChangeName();
+};
+
+User.prototype.promptToChangeName = function(){
+	var name;
+
+	do {
+		name = prompt("Please enter your name:").trim();
+	} while(!name);
+
+	this.setName(name);
+}
+
+User.prototype.setName = function(name){
+	this.name = localStorage.name = name;
+	if (gSock.ready())
+		gSock.sendAll({
+			type: 'uinfo',
+			name: this.name
+		});
+};
+
+User.prototype.setUID = function(uid){
+	this.uid = uid;
+}
 window.onload = function(){
 	window.onload = null;
 	new AppController();

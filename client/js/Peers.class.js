@@ -13,6 +13,10 @@ Peers.prototype.createDOM = function(){
 
 Peers.prototype.processMsg = function(uid, msg){
 	switch(msg.type){
+		case 'chat':
+
+		return;
+
 		case 'kick':
 		msg.uids.forEach((function(uid){
 			var peer = this.peers[uid];
@@ -21,10 +25,6 @@ Peers.prototype.processMsg = function(uid, msg){
 			peer.destroy();
 		}).bind(this));
 		return;
-
-		case 'reqoffer':
-		if (this.peers[uid]) return;
-		break;
 	}
 
 	(this.peers[uid] || (this.peers[uid] = new Peer(uid))).processMsg(msg);

@@ -23,6 +23,34 @@
 		&[data-pressed=true]
 			background-color: #bfb
 
+		&.menubtn
+			background-image: url('images/menu.svg')
+			float: right
+
+			&:not([data-showmenu='true'])
+				.menu
+					opacity: 0
+					visibility: hidden
+
+			.menu
+				overflow: hidden
+				transition: .1s all
+				background: #fff
+				border: .1em solid #000
+				position: absolute
+				margin-top: .15em
+				top: 100%
+				right: 0
+				white-space: nowrap
+
+				box-shadow: 0 0 .2em #000
+
+				div
+					padding: .2em
+
+					&:not(:first-child)
+						border-top: .1em solid #000
+
 		&[data-cmd=mic]
 			&[data-pressed=false]
 				background-image: url('images/mic-off.svg')

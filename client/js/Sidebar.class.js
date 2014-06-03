@@ -7,7 +7,7 @@ Sidebar.prototype.createDOM = function(){
 	this.$root.className = 'sidebar';
 
 	this.$peerlist = this.$root.appendChild(
-		document.createElement("ul")
+		document.createElement("div")
 	);
 	this.$peerlist.className = 'peerlist';
 

@@ -4,6 +4,10 @@ function Sock(){
 	);
 };
 
+Sock.prototype.ready = function(){
+	return this.sock.readyState == WebSocket.prototype.OPEN;
+};
+
 Sock.prototype.send = function(uid, msg){
 	this.sock.send(JSON.stringify({
 		uid: uid, 

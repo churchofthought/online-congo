@@ -4,7 +4,6 @@ var gPeers;
 var gLocalMediaStream;
 var gSelection;
 var gContextMenu;
-var gUID;
 var gSettingsBar;
 var gSidebar;
 
@@ -12,6 +11,8 @@ function AppController(){
 	gApp = this;
 
 	gSock = this.sock = new Sock();
+	gUser = this.user = new User();
+
 	this.sock.addEventListener('message', this.onSockMsg.bind(this)); 
 	this.sock.addEventListener('open', this.onSockOpen.bind(this));
 
@@ -40,7 +41,8 @@ AppController.prototype.createMainTable = function(){
 
 AppController.prototype.onSockOpen = function(){
 	this.sock.sendAll({
-		type: 'reqoffer'
+		type: 'uinfo',
+		name: gUser.name
 	});
 };
 
@@ -49,7 +51,13 @@ AppController.prototype.onSockMsg = function(e){
 	var uid = wrapper.uid;
 	var msg = wrapper.msg;
 
-	this.peers.processMsg(uid, msg);
+	if (msg instanceof Array){
+		msg.forEach((function(m){
+			this.peers.processMsg(uid, m);
+		}).bind(this));
+	}
+	else
+		this.peers.processMsg(uid, msg);
 };
 
 AppController.prototype.kick = function(sel){

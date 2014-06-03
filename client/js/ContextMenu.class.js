@@ -5,7 +5,7 @@ function ContextMenu(){
 }
 
 ContextMenu.prototype.createDOM = function(){
-	this.$root = document.createElement("ul");
+	this.$root = document.createElement("div");
 	this.$root.className = 'ctx';
 	this.$root.dataset.visible = false;
 
@@ -48,7 +48,7 @@ ContextMenu.prototype.onWindowClick = function(e){
 };
 
 ContextMenu.prototype.addCommand = function(label, cmd){
-	var $li = document.createElement("li");
+	var $li = document.createElement("div");
 	$li.dataset.cmd = cmd;
 	$li.textContent = label;
 

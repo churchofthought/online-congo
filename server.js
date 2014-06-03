@@ -1,5 +1,4 @@
-var chat = [];
-
+var actions = [];
 
 var websocket = require('websocket');
 var WebSocketServer = websocket.server;
@@ -56,11 +55,19 @@ function gotMsg(wrapper){
 	var uid = wrapper.uid;
 	var msg = wrapper.msg;
 
-
-	var data = JSON.stringify({
+	var o = {
+		time: Date.now(),
 		uid: this.uid(),
 		msg: msg
-	});
+	};
+
+	switch (msg.type){
+		case 'chat':
+		actions.push(o);
+		break;
+	}
+
+	var data = JSON.stringify(o);
 
 	switch (uid){
 		case "*":
