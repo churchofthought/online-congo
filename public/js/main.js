@@ -40,33 +40,37 @@ AppController.prototype.createMainTable = function(){
 }
 
 AppController.prototype.onSockOpen = function(){
-	this.sock.sendAll({
-		type: 'uinfo',
-		name: gUser.name
-	});
+	this.sock.sendServer("setname", gUser.name);
 };
 
 AppController.prototype.onSockMsg = function(e){
-	var wrapper = JSON.parse(e.data);
-	var uid = wrapper.uid;
-	var msg = wrapper.msg;
+	var msg = JSON.parse(e.data);
 
-	if (msg instanceof Array){
-		msg.forEach((function(m){
-			this.peers.processMsg(uid, m);
-		}).bind(this));
-	}
-	else
-		this.peers.processMsg(uid, msg);
+	// todo 
+	// combined message packing
+	// 
+	// if (msg instanceof Array){
+	// 	msg.forEach((function(m){
+	// 		this.peers.processMsg(uid, m);
+	// 	}).bind(this));
+	// }
+	// else
+	// 
+	
+	switch (msg[0]){
+		case cmdt.server:
+		this.peers.processServerMsg(msg[1], msg.slice(2));
+		break;
+
+		default:
+		this.peers.processUserMsg(msg[0], msg[1], msg.slice(2));
+	}	
 };
 
 AppController.prototype.kick = function(sel){
-	this.sock.sendAdmin({
-		type: 'kick',
-		uids: sel.map(function(p){
-			return p.uid;
-		})
-	});
+	this.sock.arrSendServer('kick', sel.map(function(p){
+		return p.uid;
+	}));
 };
 function ContextMenu(){
 	this.createDOM();
@@ -295,9 +299,8 @@ function Peer(uid){
 
 	this.createDOM();
 
-	this.onStreamsChanged = this.onStreamsChanged.bind(this);
+	this.onStreamChanged = this.onStreamChanged.bind(this);
 
-	this.send(gUser.getInfo());
 	this.sendOffer();
 };
 
@@ -323,11 +326,20 @@ Peer.prototype.createDOM = function(){
 
 	this.$lroot = document.createElement("div");
 	this.$lroot.className = "peer";
+
+	this.$licon = this.$lroot.appendChild(document.createElement("div"));
+	this.$licon.className = "icon";
+
+	this.$lname = this.$lroot.appendChild(document.createElement("div"));
+	this.$lname.className = "name";
+	this.$lname.textContent = this.name;
+
 	gSidebar.$peerlist.appendChild(this.$lroot);
 };
 
 Peer.prototype.onNameChanged = function(){
 	this.$name.textContent = this.name;
+	this.$lname.textContent = this.name;
 }
 
 Peer.prototype.createPeerConnection = function(){
@@ -341,52 +353,46 @@ Peer.prototype.createPeerConnection = function(){
 	this.peerConnection.addStream(gLocalMediaStream.stream);
 };
 
-Peer.prototype.send = function(msg){
-	gSock.send(this.uid, msg);
-};
-
-Peer.prototype.requestOffers = function(){
-	gSock.sendAll({
-		type: "reqoffer"
-	});
+Peer.prototype.send = function(type, msg){
+	gSock.send(this.uid, type, msg);
 };
 
 Peer.prototype.onIceCandidate = function(e){
-	if (!e.candidate) return;
 
 	var candidate = e.candidate;
-	if (!candidate.type)
-		candidate.type = 'icecandidate';
 
-	this.send(candidate);
+	if (candidate)
+		this.send('icecandidate', candidate);
 };
 
 Peer.prototype.onAddStream = function(e){
-	var stream = e.stream;
-	stream.onaddtrack = stream.onremovetrack = this.onStreamsChanged;
-	this.onStreamsChanged();
+	this.stream = e.stream;
+	this.stream.onaddtrack = this.stream.onremovetrack = this.onStreamChanged;
+	this.onStreamChanged();
 };
 
 Peer.prototype.onRemoveStream = function(e){
-	this.onStreamsChanged();
+	if (this.stream == e.stream)
+		this.stream = null;
+
+	this.onStreamChanged();
 };
 
 Peer.prototype.onNegotiationNeeded = function(){
 	// this.sendOffer();
 };
 
-Peer.prototype.onStreamsChanged = function(){
+Peer.prototype.onStreamChanged = function(){
 	var $elt;
 	while ($elt = this.$streams.firstChild)
 		this.$streams.removeChild($elt);
 
-	var stream = this.peerConnection.getRemoteStreams()[0];
-	if (!stream){
-		this.$root.setAttribute('hasVid', false);
+	if (!this.stream){
+		this.$root.dataset.vids = 0;
 		return;
 	}
 
-	var vidTracks = stream.getVideoTracks();
+	var vidTracks = this.stream.getVideoTracks();
 	this.$root.dataset.vids = vidTracks.length;
 
 	vidTracks.forEach((function(track){
@@ -398,47 +404,39 @@ Peer.prototype.onStreamsChanged = function(){
 		this.$streams.appendChild($stream);
 	}).bind(this));
 
-	var audioTrack = stream.getAudioTracks()[0];
+	var audioTrack = this.stream.getAudioTracks()[0];
 	if (audioTrack){
 		var $stream = new Audio();
 		$stream.autoplay = true;
-		$stream.src = URL.createObjectURL(stream);
+		$stream.src = URL.createObjectURL(this.stream);
 		this.$streams.appendChild($stream);
 	}
 };
 
-Peer.prototype.processMsg = function(msg){
-	switch(msg.type){
+Peer.prototype.setName = function(name){
+	this.name = name;
+	this.onNameChanged();
+};
 
-		case 'disconnected':
-			this.destroy();
+Peer.prototype.processMsg = function(type, msg){
+
+	switch(type){
+
+		case ucmd.answer:
+			this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg[0]), function(){});
 		break;
 
-		case "uinfo":
-			this.name = msg.name;
-			this.onNameChanged();
-		break;
-
-		case "answer":
-			this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg), function(){});
-		break;
-
-		case "icecandidate":
+		case ucmd.icecandidate:
 			try{
-				this.peerConnection.addIceCandidate(new RTCIceCandidate(msg));
+				this.peerConnection.addIceCandidate(new RTCIceCandidate(msg[0]));
 			}catch(e){}
 		break;
 
-		case "reqoffer":
-			this.sendUserInfo();
-			this.sendOffer();
-		break;
-
-		case "offer":
-			this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg), (function() {
+		case ucmd.offer:
+			this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg[0]), (function() {
 				this.peerConnection.createAnswer((function(answer) {
 					this.peerConnection.setLocalDescription(answer, (function() {
-						this.send(answer);
+						this.send('answer', answer);
 					}).bind(this));
 				}).bind(this), null, rtcConstraints);
 			}).bind(this));
@@ -446,16 +444,10 @@ Peer.prototype.processMsg = function(msg){
 	}
 };
 
-Peer.prototype.sendUserInfo = function(){
-	var info = gUser.getInfo();
-	info.type = 'uinfo';
-	this.send(info);
-}
-
 Peer.prototype.sendOffer = function(){
 	this.peerConnection.createOffer((function(offer) {
 		this.peerConnection.setLocalDescription(offer, (function(){
-			this.send(offer);
+			this.send('offer', offer);
 		}).bind(this));
 	}).bind(this), null, rtcConstraints);
 };
@@ -469,12 +461,14 @@ Peer.prototype.setSelected = function(selected){
 };
 
 Peer.prototype.onIceConnectionStateChange = function(){
+	console.log('pooop');
 	if (this.peerConnection.iceConnectionState == "disconnected")
 		this.destroy();
 };
 
 Peer.prototype.destroy = function(){
 	gPeers.$root.removeChild(this.$root);
+	gSidebar.$peerlist.removeChild(this.$lroot);
 
 	this.peerConnection.close();
 	delete gPeers.peers[this.uid];
@@ -492,35 +486,42 @@ Peers.prototype.createDOM = function(){
 	gApp.$mainTable.appendChild(this.$root);
 };
 
-Peers.prototype.processMsg = function(uid, msg){
-
+Peers.prototype.processUserMsg = function(uid, type, msg){
 	var sender = this.peers[uid];
-
-
-	switch(msg.type){
-		case 'disconnected':
-		if (!sender) return;
-		break;
-
-		case 'chat':
-
-		return;
-
-		case 'kick':
-		msg.uids.forEach((function(uid){
-			var peer = this.peers[uid];
-			if (!peer) return;
-
-			peer.destroy();
-		}).bind(this));
-		return;
-	}
-
 	if (!sender)
 		sender = this.peers[uid] = new Peer(uid);
 
-	sender.processMsg(msg);
+	console.log(type, msg);
+	sender.processMsg(type, msg);
 };
+
+Peers.prototype.processServerMsg = function(type, msg){
+	switch(type){
+		case fscmd.names:
+		var names = msg[0];
+		for (var name in names)
+			this.getPeer(names[name]).setName(name);
+		break;
+
+		case fscmd.disconnected:
+		console.log(msg[0]);
+		var peer = this.peers[msg[0]];
+		if (peer)
+			peer.destroy();
+		break;
+
+		case fscmd.setname:
+		this.getPeer(msg[0]).setName(msg[1]);
+		break;
+	}
+}
+
+Peers.prototype.getPeer = function(uid){
+	var peer = this.peers[uid];
+	if (peer) return peer;
+
+	return (this.peers[uid] = new Peer(uid));
+}
 
 Peers.prototype.onLocalStreamChanged = function(){
 	for (var p in this.peers)
@@ -758,19 +759,28 @@ Sock.prototype.ready = function(){
 	return this.sock.readyState == WebSocket.prototype.OPEN;
 };
 
-Sock.prototype.send = function(uid, msg){
-	this.sock.send(JSON.stringify({
-		uid: uid, 
-		msg: msg
-	}));
+Sock.prototype.send = function(uid, type){
+	this.sock.send(JSON.stringify(
+		[uid, ucmd[type]].concat(Array.prototype.slice.call(arguments, 2))
+	));
 };
 
-Sock.prototype.sendAll = function(msg){
-	this.send("*", msg);
+Sock.prototype.sendAll = function(type){
+	this.sock.send(JSON.stringify(
+		[cmdt.all, ucmd[type]].concat(Array.prototype.slice.call(arguments, 1))
+	));
 };
 
-Sock.prototype.sendAdmin = function(msg){
-	this.send("#", msg);
+Sock.prototype.sendServer = function(type){
+	this.sock.send(JSON.stringify(
+		[cmdt.server, tscmd[type]].concat(Array.prototype.slice.call(arguments, 1))
+	));
+};
+
+Sock.prototype.arrSendServer = function(type, arr){
+	this.sock.send(JSON.stringify(
+		[cmdt.server, tscmd[type]].concat(arr)
+	));
 }
 
 Sock.prototype.addEventListener = function(type, cb){
@@ -783,13 +793,6 @@ Sock.prototype.removeEventListener = function(type, cb){
 function User(){
 	this.restore();
 }
-
-User.prototype.getInfo = function(){
-	return {
-		type: 'uinfo',
-		name: this.name
-	};
-};
 
 User.prototype.restore = function(){
 	this.setName(localStorage.name);
@@ -809,17 +812,33 @@ User.prototype.promptToChangeName = function(){
 }
 
 User.prototype.setName = function(name){
+	// todo
 	this.name = localStorage.name = name;
 	if (gSock.ready())
-		gSock.sendAll({
-			type: 'uinfo',
-			name: this.name
-		});
+		gSock.sendServer('setname', this.name);
 };
 
 User.prototype.setUID = function(uid){
 	this.uid = uid;
-}
+};
+(function(){
+	var exports = (typeof window == 'undefined' ? module.exports : window);
+
+
+	function constants(){
+		var o = {};
+		for (var i = arguments.length; i--;)
+			o[arguments[i]] = i;
+
+		return o;
+	}
+
+	exports.cmdt = constants("server","all");
+	exports.fscmd = constants("setname", "disconnected", "names");
+	exports.tscmd = constants("setname", "kick");
+	exports.ucmd = constants("icecandidate", "offer", "answer");
+
+})();
 window.onload = function(){
 	window.onload = null;
 	new AppController();

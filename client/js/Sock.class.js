@@ -8,19 +8,28 @@ Sock.prototype.ready = function(){
 	return this.sock.readyState == WebSocket.prototype.OPEN;
 };
 
-Sock.prototype.send = function(uid, msg){
-	this.sock.send(JSON.stringify({
-		uid: uid, 
-		msg: msg
-	}));
+Sock.prototype.send = function(uid, type){
+	this.sock.send(JSON.stringify(
+		[uid, ucmd[type]].concat(Array.prototype.slice.call(arguments, 2))
+	));
 };
 
-Sock.prototype.sendAll = function(msg){
-	this.send("*", msg);
+Sock.prototype.sendAll = function(type){
+	this.sock.send(JSON.stringify(
+		[cmdt.all, ucmd[type]].concat(Array.prototype.slice.call(arguments, 1))
+	));
 };
 
-Sock.prototype.sendAdmin = function(msg){
-	this.send("#", msg);
+Sock.prototype.sendServer = function(type){
+	this.sock.send(JSON.stringify(
+		[cmdt.server, tscmd[type]].concat(Array.prototype.slice.call(arguments, 1))
+	));
+};
+
+Sock.prototype.arrSendServer = function(type, arr){
+	this.sock.send(JSON.stringify(
+		[cmdt.server, tscmd[type]].concat(arr)
+	));
 }
 
 Sock.prototype.addEventListener = function(type, cb){

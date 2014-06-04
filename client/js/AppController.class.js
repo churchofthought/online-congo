@@ -40,31 +40,35 @@ AppController.prototype.createMainTable = function(){
 }
 
 AppController.prototype.onSockOpen = function(){
-	this.sock.sendAll({
-		type: 'uinfo',
-		name: gUser.name
-	});
+	this.sock.sendServer("setname", gUser.name);
 };
 
 AppController.prototype.onSockMsg = function(e){
-	var wrapper = JSON.parse(e.data);
-	var uid = wrapper.uid;
-	var msg = wrapper.msg;
+	var msg = JSON.parse(e.data);
 
-	if (msg instanceof Array){
-		msg.forEach((function(m){
-			this.peers.processMsg(uid, m);
-		}).bind(this));
-	}
-	else
-		this.peers.processMsg(uid, msg);
+	// todo 
+	// combined message packing
+	// 
+	// if (msg instanceof Array){
+	// 	msg.forEach((function(m){
+	// 		this.peers.processMsg(uid, m);
+	// 	}).bind(this));
+	// }
+	// else
+	// 
+	
+	switch (msg[0]){
+		case cmdt.server:
+		this.peers.processServerMsg(msg[1], msg.slice(2));
+		break;
+
+		default:
+		this.peers.processUserMsg(msg[0], msg[1], msg.slice(2));
+	}	
 };
 
 AppController.prototype.kick = function(sel){
-	this.sock.sendAdmin({
-		type: 'kick',
-		uids: sel.map(function(p){
-			return p.uid;
-		})
-	});
+	this.sock.arrSendServer('kick', sel.map(function(p){
+		return p.uid;
+	}));
 };

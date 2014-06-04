@@ -1,5 +1,3 @@
-var actions = [];
-
 var websocket = require('websocket');
 var WebSocketServer = websocket.server;
 var WebSocketConnection = websocket.connection;
@@ -9,9 +7,46 @@ var fs = require('fs');
 var staticServer = new (require('node-static').Server)('./public');
 
 var connections = {};
+var names = {};
+
+
+var cmds = require("./client/js/commands.js");
+var cmdt = cmds.cmdt;
+var fscmd = cmds.fscmd;
+var tscmd = cmds.tscmd;
+var acmd = cmds.acmd;
 
 
 
+WebSocketConnection.prototype.serverSend = function(type){
+
+	this.sendUTF(JSON.stringify([
+		cmdt.server,
+		fscmd[type]
+	].concat(Array.prototype.slice.call(arguments, 1))));
+};
+
+// WebSocketConnection.prototype.arrServerSend = function(type, arr){
+// 	this.sendUTF(JSON.stringify([
+// 		cmdt.server,
+// 		fscmd[type]
+// 	].concat(arr)));
+// };
+
+function getFirstAvailableName(name){
+	if (!isNameTaken(name)) return name;
+
+	name += " (";
+	for (var i = 2; ; ++i){
+		var newName = name + i + ")";
+		if (!isNameTaken(newName))
+			return newName;
+	}
+}
+
+function isNameTaken(name){
+	return !!names[name];
+}
 
 var httpServer = require('https').createServer({
 	key: fs.readFileSync('key.pem'),
@@ -39,70 +74,73 @@ new WebSocketServer({
 	autoAcceptConnections: true,
 	httpServer: httpServer
 }).on('connect', function(c){
+
+	// todo uid should be md5ed with a salt and some bullshit
 	c.uid = c.socket.remoteAddress + ':' + c.socket.remotePort;
 	c.on('message', gotMsg);
 	connections[c.uid] = c;
+
+	c.serverSend('names', names);
 }).on('close', function(c){
+	delete names[c.name];
 	delete connections[c.uid];
 
-	for (var k in connections)
-		connections[k].sendUTF(JSON.stringify({
-			uid: c.uid,
-			msg: {
-				type: 'disconnected'
-			}
-		}));
+	serverSendAll('disconnected', c.uid);
 });
 
+function serverSendAll(type){
+
+	var o = JSON.stringify([
+		cmdt.server,
+		fscmd[type]
+	].concat(Array.prototype.slice.call(arguments, 1)));
+
+	for (var k in connections)
+		connections[k].sendUTF(o);
+}
+
 function gotMsg(wrapper){
-	wrapper = JSON.parse(wrapper.utf8Data);
-	var uid = wrapper.uid;
-	var msg = wrapper.msg;
+	var msg = JSON.parse(wrapper.utf8Data);
 
-	var o = {
-		time: Date.now(),
-		uid: this.uid,
-		msg: msg
-	};
-
-	switch (msg.type){
-		case 'chat':
-		actions.push(o);
-		break;
-	}
-
-	var data = JSON.stringify(o);
-
-	switch (uid){
-		case "*":
-		for (var k in connections){
-			var conn = connections[k];
-			if (conn == this) continue;
-			conn.sendUTF(data);
+	switch (msg[0]){
+		case cmdt.server:
+		switch (msg[1]){
+			case tscmd.setname:
+			delete names[this.name];
+			names[this.name = getFirstAvailableName(msg[2])] = this.uid;
+			serverSendAll('setname', this.uid, this.name);
+			break;
 		}
-		break;
-
-		case "#":
-		switch (msg.type){
-			case "kick":
-			msg.uids.forEach(function(uid){
+		// todo
+		// check if admin
+		switch (msg[1]){
+			case tscmd.kick:
+			msg.slice(2).forEach(function(uid){
 				var connection = connections[uid];
 				if (connection)
 					connection.close();
-				delete connections[uid]; // might not be needed
 			});
 			break;
 		}
-		for (var k in connections){
-			connections[k].sendUTF(data);
-		}
+		break;
+
+		case cmdt.all:
+		// msg[0] = this.uid;
+		// msg = JSON.stringify(msg);
+		// for (var k in connections){
+		// 	var conn = connections[k];
+		// 	if (conn != this)
+		// 		conn.sendUTF(msg);
+		// }
 		break;
 
 		default:
-		var connection = connections[uid];
-		if (connection)
-			connection.sendUTF(data);
-	}	
+		var connection = connections[msg[0]];
+		if (connection){
+			msg[0] = this.uid;
+			connection.sendUTF(JSON.stringify(msg));
+		}
+	}
 }
 
 httpServer.listen(443);

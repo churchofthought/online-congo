@@ -2,13 +2,6 @@ function User(){
 	this.restore();
 }
 
-User.prototype.getInfo = function(){
-	return {
-		type: 'uinfo',
-		name: this.name
-	};
-};
-
 User.prototype.restore = function(){
 	this.setName(localStorage.name);
 	
@@ -27,14 +20,12 @@ User.prototype.promptToChangeName = function(){
 }
 
 User.prototype.setName = function(name){
+	// todo
 	this.name = localStorage.name = name;
 	if (gSock.ready())
-		gSock.sendAll({
-			type: 'uinfo',
-			name: this.name
-		});
+		gSock.sendServer('setname', this.name);
 };
 
 User.prototype.setUID = function(uid){
 	this.uid = uid;
-}
+};
