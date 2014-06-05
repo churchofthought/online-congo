@@ -6,6 +6,8 @@ var gSelection;
 var gContextMenu;
 var gSettingsBar;
 var gSidebar;
+var gUser;
+var gAudioContext = new webkitAudioContext();
 
 function AppController(){
 	gApp = this;

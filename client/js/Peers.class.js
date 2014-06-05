@@ -16,20 +16,19 @@ Peers.prototype.processUserMsg = function(uid, type, msg){
 	if (!sender)
 		sender = this.peers[uid] = new Peer(uid);
 
-	console.log(type, msg);
 	sender.processMsg(type, msg);
 };
 
 Peers.prototype.processServerMsg = function(type, msg){
 	switch(type){
-		case fscmd.names:
-		var names = msg[0];
+		case fscmd.init:
+		gUser.uid = msg[0];
+		var names = msg[1];
 		for (var name in names)
 			this.getPeer(names[name]).setName(name);
 		break;
 
 		case fscmd.disconnected:
-		console.log(msg[0]);
 		var peer = this.peers[msg[0]];
 		if (peer)
 			peer.destroy();

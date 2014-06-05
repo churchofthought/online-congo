@@ -80,7 +80,7 @@ new WebSocketServer({
 	c.on('message', gotMsg);
 	connections[c.uid] = c;
 
-	c.serverSend('names', names);
+	c.serverSend('init', c.uid, names);
 }).on('close', function(c){
 	delete names[c.name];
 	delete connections[c.uid];

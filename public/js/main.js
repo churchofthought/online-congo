@@ -6,6 +6,8 @@ var gSelection;
 var gContextMenu;
 var gSettingsBar;
 var gSidebar;
+var gUser;
+var gAudioContext = new webkitAudioContext();
 
 function AppController(){
 	gApp = this;
@@ -149,14 +151,12 @@ var mediaConstraints = {
 
 
 function LocalMediaStream(){
-	this.ctx = new webkitAudioContext();
-
-	this.analyser = this.ctx.createAnalyser();
+	this.analyser = gAudioContext.createAnalyser();
 	this.analyserArray = new Uint8Array(this.analyser.frequencyBinCount);
 
 	this.stream = new webkitMediaStream([
 		this.blankAudioTrack = 
-			this.ctx.createMediaStreamDestination()
+			gAudioContext.createMediaStreamDestination()
 				.stream.getAudioTracks()[0]
 	]);
 
@@ -252,7 +252,7 @@ LocalMediaStream.prototype.getUserMedia = function(type){
 			this.tracks.mic = audioTrack;
 
 			this.analyser.disconnect();
-			this.ctx.createMediaStreamSource(this.stream).connect(this.analyser);
+			gAudioContext.createMediaStreamSource(this.stream).connect(this.analyser);
 		}
 
 		var videoTrack = stream.getVideoTracks()[0];
@@ -295,18 +295,47 @@ function Peer(uid){
 	this.uid = uid;
 	this.name = "";
 
-	this.createPeerConnection();
-
 	this.createDOM();
-
 	this.onStreamChanged = this.onStreamChanged.bind(this);
 
-	this.sendOffer();
+	this.analyser = gAudioContext.createAnalyser();
+	this.analyserArray = new Uint8Array(this.analyser.frequencyBinCount);
+
+	if (this.uid == gUser.uid){
+		this.onAddStream({
+			stream: gLocalMediaStream.stream
+		});
+		this.onLocalStreamChanged = this.onStreamChanged;
+	}else{
+		this.createPeerConnection();
+		this.sendOffer();
+	}
+
+	requestAnimationFrame(
+		this.processAudio = this.processAudio.bind(this)
+	);
+	
 };
+
+Peer.prototype.processAudio = function(e){
+	this.analyser.getByteFrequencyData(this.analyserArray);
+	var avg = 0;
+	for (var i = this.analyserArray.length; i--;)
+		avg += this.analyserArray[i];
+
+	this.$micDB.style.width =
+		(100 * avg / this.analyserArray.length / (this.analyser.maxDecibels - this.analyser.minDecibels)) + '%';
+
+	requestAnimationFrame(this.processAudio);
+};
+
 
 Peer.prototype.createDOM = function(){
 	this.$root = document.createElement("div");
 	this.$root.className = "peer";
+
+	this.$micDB = this.$root.appendChild(document.createElement("div"));
+	this.$micDB.className = "db";
 
 	this.$root.dataset.vids = 0;
 
@@ -372,8 +401,10 @@ Peer.prototype.onAddStream = function(e){
 };
 
 Peer.prototype.onRemoveStream = function(e){
-	if (this.stream == e.stream)
-		this.stream = null;
+	if (this.stream != e.stream) return;
+
+	this.stream = null;
+	this.analyser.disconnect();
 
 	this.onStreamChanged();
 };
@@ -403,6 +434,13 @@ Peer.prototype.onStreamChanged = function(){
 		));
 		this.$streams.appendChild($stream);
 	}).bind(this));
+
+
+	this.analyser.disconnect();
+	gAudioContext.createMediaStreamSource(this.stream).connect(this.analyser);
+
+	// we don't need no echo!
+	if (this.uid == gUser.uid) return;
 
 	var audioTrack = this.stream.getAudioTracks()[0];
 	if (audioTrack){
@@ -461,7 +499,6 @@ Peer.prototype.setSelected = function(selected){
 };
 
 Peer.prototype.onIceConnectionStateChange = function(){
-	console.log('pooop');
 	if (this.peerConnection.iceConnectionState == "disconnected")
 		this.destroy();
 };
@@ -491,20 +528,19 @@ Peers.prototype.processUserMsg = function(uid, type, msg){
 	if (!sender)
 		sender = this.peers[uid] = new Peer(uid);
 
-	console.log(type, msg);
 	sender.processMsg(type, msg);
 };
 
 Peers.prototype.processServerMsg = function(type, msg){
 	switch(type){
-		case fscmd.names:
-		var names = msg[0];
+		case fscmd.init:
+		gUser.uid = msg[0];
+		var names = msg[1];
 		for (var name in names)
 			this.getPeer(names[name]).setName(name);
 		break;
 
 		case fscmd.disconnected:
-		console.log(msg[0]);
 		var peer = this.peers[msg[0]];
 		if (peer)
 			peer.destroy();
@@ -834,7 +870,7 @@ User.prototype.setUID = function(uid){
 	}
 
 	exports.cmdt = constants("server","all");
-	exports.fscmd = constants("setname", "disconnected", "names");
+	exports.fscmd = constants("setname", "disconnected", "init");
 	exports.tscmd = constants("setname", "kick");
 	exports.ucmd = constants("icecandidate", "offer", "answer");
 

@@ -17,18 +17,47 @@ function Peer(uid){
 	this.uid = uid;
 	this.name = "";
 
-	this.createPeerConnection();
-
 	this.createDOM();
-
 	this.onStreamChanged = this.onStreamChanged.bind(this);
 
-	this.sendOffer();
+	this.analyser = gAudioContext.createAnalyser();
+	this.analyserArray = new Uint8Array(this.analyser.frequencyBinCount);
+
+	if (this.uid == gUser.uid){
+		this.onAddStream({
+			stream: gLocalMediaStream.stream
+		});
+		this.onLocalStreamChanged = this.onStreamChanged;
+	}else{
+		this.createPeerConnection();
+		this.sendOffer();
+	}
+
+	requestAnimationFrame(
+		this.processAudio = this.processAudio.bind(this)
+	);
+	
 };
+
+Peer.prototype.processAudio = function(e){
+	this.analyser.getByteFrequencyData(this.analyserArray);
+	var avg = 0;
+	for (var i = this.analyserArray.length; i--;)
+		avg += this.analyserArray[i];
+
+	this.$micDB.style.width =
+		(100 * avg / this.analyserArray.length / (this.analyser.maxDecibels - this.analyser.minDecibels)) + '%';
+
+	requestAnimationFrame(this.processAudio);
+};
+
 
 Peer.prototype.createDOM = function(){
 	this.$root = document.createElement("div");
 	this.$root.className = "peer";
+
+	this.$micDB = this.$root.appendChild(document.createElement("div"));
+	this.$micDB.className = "db";
 
 	this.$root.dataset.vids = 0;
 
@@ -94,8 +123,10 @@ Peer.prototype.onAddStream = function(e){
 };
 
 Peer.prototype.onRemoveStream = function(e){
-	if (this.stream == e.stream)
-		this.stream = null;
+	if (this.stream != e.stream) return;
+
+	this.stream = null;
+	this.analyser.disconnect();
 
 	this.onStreamChanged();
 };
@@ -125,6 +156,13 @@ Peer.prototype.onStreamChanged = function(){
 		));
 		this.$streams.appendChild($stream);
 	}).bind(this));
+
+
+	this.analyser.disconnect();
+	gAudioContext.createMediaStreamSource(this.stream).connect(this.analyser);
+
+	// we don't need no echo!
+	if (this.uid == gUser.uid) return;
 
 	var audioTrack = this.stream.getAudioTracks()[0];
 	if (audioTrack){
@@ -183,7 +221,6 @@ Peer.prototype.setSelected = function(selected){
 };
 
 Peer.prototype.onIceConnectionStateChange = function(){
-	console.log('pooop');
 	if (this.peerConnection.iceConnectionState == "disconnected")
 		this.destroy();
 };

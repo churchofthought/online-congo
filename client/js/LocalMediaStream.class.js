@@ -19,14 +19,12 @@ var mediaConstraints = {
 
 
 function LocalMediaStream(){
-	this.ctx = new webkitAudioContext();
-
-	this.analyser = this.ctx.createAnalyser();
+	this.analyser = gAudioContext.createAnalyser();
 	this.analyserArray = new Uint8Array(this.analyser.frequencyBinCount);
 
 	this.stream = new webkitMediaStream([
 		this.blankAudioTrack = 
-			this.ctx.createMediaStreamDestination()
+			gAudioContext.createMediaStreamDestination()
 				.stream.getAudioTracks()[0]
 	]);
 
@@ -122,7 +120,7 @@ LocalMediaStream.prototype.getUserMedia = function(type){
 			this.tracks.mic = audioTrack;
 
 			this.analyser.disconnect();
-			this.ctx.createMediaStreamSource(this.stream).connect(this.analyser);
+			gAudioContext.createMediaStreamSource(this.stream).connect(this.analyser);
 		}
 
 		var videoTrack = stream.getVideoTracks()[0];
