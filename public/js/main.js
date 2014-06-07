@@ -10,6 +10,11 @@ var gUser;
 var gAudioContext = new webkitAudioContext();
 var gChat;
 
+// todo
+// 
+// enable fallback for
+// Enable screen capture support in getUserMedia()
+
 function AppController(){
 	gApp = this;
 
@@ -339,7 +344,7 @@ var rtcConstraints = {
 	}
 };
 
-function Peer(uid){
+function Peer(uid, dontSendOffer){
 
 	this.uid = uid;
 	this.name = "";
@@ -358,7 +363,8 @@ function Peer(uid){
 		this.onLocalStreamChanged = this.onStreamChanged;
 	}else{
 		this.createPeerConnection();
-		this.sendOffer();
+		if (!dontSendOffer)
+			this.sendOffer();
 	}
 
 	requestAnimationFrame(
@@ -639,7 +645,8 @@ Peers.prototype.createDOM = function(){
 Peers.prototype.processUserMsg = function(uid, type, msg){
 	var sender = this.peers[uid];
 	if (!sender)
-		sender = this.peers[uid] = new Peer(uid);
+		sender = this.peers[uid] = new Peer(uid, type != ucmd.offer);
+
 
 	sender.processMsg(type, msg);
 };

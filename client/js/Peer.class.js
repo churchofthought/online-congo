@@ -12,7 +12,7 @@ var rtcConstraints = {
 	}
 };
 
-function Peer(uid){
+function Peer(uid, dontSendOffer){
 
 	this.uid = uid;
 	this.name = "";
@@ -31,7 +31,8 @@ function Peer(uid){
 		this.onLocalStreamChanged = this.onStreamChanged;
 	}else{
 		this.createPeerConnection();
-		this.sendOffer();
+		if (!dontSendOffer)
+			this.sendOffer();
 	}
 
 	requestAnimationFrame(

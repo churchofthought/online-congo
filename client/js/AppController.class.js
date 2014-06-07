@@ -10,6 +10,11 @@ var gUser;
 var gAudioContext = new webkitAudioContext();
 var gChat;
 
+// todo
+// 
+// enable fallback for
+// Enable screen capture support in getUserMedia()
+
 function AppController(){
 	gApp = this;
 
