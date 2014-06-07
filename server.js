@@ -3,6 +3,7 @@ var WebSocketServer = websocket.server;
 var WebSocketConnection = websocket.connection;
 
 var fs = require('fs');
+var crypto = require('crypto');
 
 var staticServer = new (require('node-static').Server)('./public');
 
@@ -76,7 +77,7 @@ new WebSocketServer({
 }).on('connect', function(c){
 
 	// todo uid should be md5ed with a salt and some bullshit
-	c.uid = c.socket.remoteAddress + ':' + c.socket.remotePort;
+	c.uid = crypto.createHash('sha1').update(crypto.randomBytes(128)).digest('hex');
 	c.on('message', gotMsg);
 	connections[c.uid] = c;
 
@@ -125,13 +126,13 @@ function gotMsg(wrapper){
 		break;
 
 		case cmdt.all:
-		// msg[0] = this.uid;
-		// msg = JSON.stringify(msg);
-		// for (var k in connections){
-		// 	var conn = connections[k];
-		// 	if (conn != this)
-		// 		conn.sendUTF(msg);
-		// }
+		msg[0] = this.uid;
+		msg = JSON.stringify(msg);
+		for (var k in connections){
+			var conn = connections[k];
+			if (conn != this)
+				conn.sendUTF(msg);
+		}
 		break;
 
 		default:

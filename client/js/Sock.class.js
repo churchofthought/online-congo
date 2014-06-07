@@ -8,10 +8,8 @@ Sock.prototype.ready = function(){
 	return this.sock.readyState == WebSocket.prototype.OPEN;
 };
 
-Sock.prototype.send = function(uid, type){
-	this.sock.send(JSON.stringify(
-		[uid, ucmd[type]].concat(Array.prototype.slice.call(arguments, 2))
-	));
+Sock.prototype.send = function(txt){
+	this.sock.send(txt);
 };
 
 Sock.prototype.sendAll = function(type){

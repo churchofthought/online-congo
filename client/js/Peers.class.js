@@ -7,7 +7,13 @@ function Peers(){
 Peers.prototype.createDOM = function(){
 	this.$root = document.createElement("div");
 	this.$root.className = 'peers';
+
+	this.$lroot = this.$root.appendChild(
+		document.createElement("div")
+	);
+	this.$lroot.className = 'peerlist';
 	
+	gSidebar.$root.appendChild(this.$lroot);
 	gApp.$mainTable.appendChild(this.$root);
 };
 
@@ -38,16 +44,21 @@ Peers.prototype.processServerMsg = function(type, msg){
 		this.getPeer(msg[0]).setName(msg[1]);
 		break;
 	}
-}
+};
+
+Peers.prototype.sendPubChatMsg = function(msg){
+	for (var uid in this.peers)
+		this.peers[uid].send("pubchat", msg);
+};
 
 Peers.prototype.getPeer = function(uid){
 	var peer = this.peers[uid];
 	if (peer) return peer;
 
 	return (this.peers[uid] = new Peer(uid));
-}
+};
 
 Peers.prototype.onLocalStreamChanged = function(){
 	for (var p in this.peers)
 		this.peers[p].onLocalStreamChanged();
-}
+};

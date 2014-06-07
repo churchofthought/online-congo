@@ -1,0 +1,66 @@
+.sidebar .peerlist
+	flex-grow: 1
+
+	.peer
+		box-sizing: border-box
+		height: 2em
+		padding: .15em 0 .15em .75em
+		border-top: .1em solid rgba(0,0,0, 0.1)
+		border-bottom: .1em solid rgba(0,0,0, 0.1)
+		background: #fff
+		position: relative
+
+		.icon
+			display: inline-block
+			background: no-repeat center center url('images/avatar.svg')
+			background-size: contain
+			width: 1em
+			height: 100%
+			vertical-align: middle
+
+		.name
+			margin-left: .5em
+			display: inline-block
+			vertical-align: middle
+
+		.info
+			display: inline-block
+			vertical-align: middle
+			float: right
+			text-align: right
+			margin-right: .5em
+			height: 50%
+
+			.mic
+				position: relative
+				display: inline-block
+				vertical-align: bottom
+				width: 1em
+				height: 100%
+				background: no-repeat center bottom url('images/mic-on.svg')
+				background-size: contain
+
+				&[data-db='0']
+					opacity: 0
+					visibility: hidden
+
+			.db
+				display: inline-block
+				vertical-align: bottom
+				width: .2em
+				background: rgba(0,0,0,0.4)
+
+			.cam
+				display: inline-block
+				vertical-align: bottom
+				width: 1em
+				height: 100%
+				background: no-repeat center bottom url('images/cam.svg')
+				background-size: contain
+
+				&[data-vids='0']
+					opacity: 0
+					visibility: hidden
+
+		&:nth-child(even)
+			background: #f0f0f0

@@ -1,7 +1,7 @@
 function ContextMenu(){
-	this.createDOM();
-	this.addCommand("Kick", "kick");
-	this.addCommand("Ban", "ban");
+	// this.createDOM();
+	// this.addCommand("Kick", "kick");
+	// this.addCommand("Ban", "ban");
 }
 
 ContextMenu.prototype.createDOM = function(){

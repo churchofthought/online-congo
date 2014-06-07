@@ -1,31 +1,14 @@
 .sidebar
+	display: flex
+	flex-direction: column
+	flex-wrap: nowrap
+
+	align-items: stretch
+	align-content: stretch
+
+
+	position: relative
 	padding-top: 1em
 	width: 15%
 	border-right: .1em solid rgba(0,0,0,0.15)
 	background: #eee
-
-	.peerlist
-		.peer
-			padding: .15em 0 .15em 1em
-			border-top: .1em solid rgba(0,0,0, 0.1)
-			background: #fff
-			position: relative
-
-			.icon
-				display: inline-block
-				background: no-repeat center center url('images/avatar.svg')
-				background-size: contain
-				width: 1em
-				height: 1em
-				vertical-align: middle
-
-			.name
-				margin-left: .35em
-				display: inline-block
-				vertical-align: middle
-
-			&:nth-child(even)
-				background: #f0f0f0
-
-			&:last-child
-				border-bottom: .1em solid rgba(0,0,0, 0.1)

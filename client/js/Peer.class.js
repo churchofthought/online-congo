@@ -24,6 +24,7 @@ function Peer(uid){
 	this.analyserArray = new Uint8Array(this.analyser.frequencyBinCount);
 
 	if (this.uid == gUser.uid){
+		this.send = this.selfSend;
 		this.onAddStream({
 			stream: gLocalMediaStream.stream
 		});
@@ -39,14 +40,22 @@ function Peer(uid){
 	
 };
 
+Peer.prototype.selfSend = function(type){
+	type = ucmd[type];
+
+	this.processMsg(type, Array.prototype.slice.call(arguments, 1));
+};
+
 Peer.prototype.processAudio = function(e){
 	this.analyser.getByteFrequencyData(this.analyserArray);
 	var avg = 0;
 	for (var i = this.analyserArray.length; i--;)
 		avg += this.analyserArray[i];
 
-	this.$micDB.style.width =
-		(100 * avg / this.analyserArray.length / (this.analyser.maxDecibels - this.analyser.minDecibels)) + '%';
+	var pct = (100 * avg / this.analyserArray.length / (this.analyser.maxDecibels - this.analyser.minDecibels));
+
+	this.$lMicDB.style.height = this.$micDB.style.width = pct + '%';
+	this.$lMicToggle.dataset.db = pct;
 
 	requestAnimationFrame(this.processAudio);
 };
@@ -85,7 +94,27 @@ Peer.prototype.createDOM = function(){
 	this.$lname.className = "name";
 	this.$lname.textContent = this.name;
 
-	gSidebar.$peerlist.appendChild(this.$lroot);
+	this.$linfo = this.$lroot.appendChild(document.createElement("div"));
+	this.$linfo.className = "info";
+
+	this.$lMicDB = this.$linfo.appendChild(document.createElement("div"));
+	this.$lMicDB.className = "db";
+
+	this.$lMicToggle = this.$linfo.appendChild(document.createElement("div"));
+	this.$lMicToggle.className = "mic";
+
+	this.$lMicToggle.dataset.db = 0;
+
+	this.$lCamToggle = this.$linfo.appendChild(document.createElement("div"));
+	this.$lCamToggle.className = "cam";
+
+	this.$lCamToggle.dataset.vids = 0;
+
+
+	
+
+
+	gPeers.$lroot.appendChild(this.$lroot);
 };
 
 Peer.prototype.onNameChanged = function(){
@@ -102,10 +131,35 @@ Peer.prototype.createPeerConnection = function(){
 	this.peerConnection.onnegotiationneeded = this.onNegotiationNeeded.bind(this);
 
 	this.peerConnection.addStream(gLocalMediaStream.stream);
+
+	this.dataChannel = this.peerConnection.createDataChannel("");
+	this.dataChannel.onmessage = this.onDataChannelMessage.bind(this);
+	this.dataChannel.onopen = this.onDataChannelOpen.bind(this);
 };
 
-Peer.prototype.send = function(type, msg){
-	gSock.send(this.uid, type, msg);
+Peer.prototype.onDataChannelOpen = function(){
+
+};
+
+Peer.prototype.onDataChannelMessage = function(msg){
+	msg = JSON.parse(msg);
+
+	this.onProcessMsg(msg[0], msg.slice(1));
+};
+
+
+
+Peer.prototype.send = function(type){
+	type = ucmd[type];
+
+	if (this.dataChannel.readyState == "open")
+		this.dataChannel.send(JSON.stringify(
+			[type].concat(Array.prototype.slice.call(arguments, 1))
+		));
+	else
+		gSock.send(JSON.stringify(
+			[this.uid, type].concat(Array.prototype.slice.call(arguments, 1))
+		));
 };
 
 Peer.prototype.onIceCandidate = function(e){
@@ -141,12 +195,12 @@ Peer.prototype.onStreamChanged = function(){
 		this.$streams.removeChild($elt);
 
 	if (!this.stream){
-		this.$root.dataset.vids = 0;
+		this.$lCamToggle.dataset.vids = this.$root.dataset.vids = 0;
 		return;
 	}
 
 	var vidTracks = this.stream.getVideoTracks();
-	this.$root.dataset.vids = vidTracks.length;
+	this.$lCamToggle.dataset.vids = this.$root.dataset.vids = vidTracks.length;
 
 	vidTracks.forEach((function(track){
 		var $stream = document.createElement('video');
@@ -181,6 +235,10 @@ Peer.prototype.setName = function(name){
 Peer.prototype.processMsg = function(type, msg){
 
 	switch(type){
+
+		case ucmd.pubchat:
+			gChat.onPubMsg(this, msg[0]);
+		break;
 
 		case ucmd.answer:
 			this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg[0]), function(){});
@@ -227,7 +285,7 @@ Peer.prototype.onIceConnectionStateChange = function(){
 
 Peer.prototype.destroy = function(){
 	gPeers.$root.removeChild(this.$root);
-	gSidebar.$peerlist.removeChild(this.$lroot);
+	gPeers.$lroot.removeChild(this.$lroot);
 
 	this.peerConnection.close();
 	delete gPeers.peers[this.uid];

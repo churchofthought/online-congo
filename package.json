@@ -9,5 +9,4 @@
 	"grunt-contrib-concat" : "*",
 	"grunt-contrib-watch" : "*",
 	"grunt-contrib-stylus" : "*"
-  }
 }

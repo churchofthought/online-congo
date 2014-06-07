@@ -8,6 +8,7 @@ var gSettingsBar;
 var gSidebar;
 var gUser;
 var gAudioContext = new webkitAudioContext();
+var gChat;
 
 function AppController(){
 	gApp = this;
@@ -27,6 +28,8 @@ function AppController(){
 	gLocalMediaStream = this.localMediaStream = new LocalMediaStream();
 
 	gPeers = this.peers = new Peers();
+
+	gChat = this.chat = new Chat();
 
 	gSelection = this.selection = new Selection();
 
@@ -74,10 +77,56 @@ AppController.prototype.kick = function(sel){
 		return p.uid;
 	}));
 };
-function ContextMenu(){
+function Chat(){
 	this.createDOM();
-	this.addCommand("Kick", "kick");
-	this.addCommand("Ban", "ban");
+}
+
+Chat.prototype.createDOM = function(){
+	this.$root = document.createElement("div");
+	this.$root.className = 'chat';
+
+	this.$msgs = this.$root.appendChild(
+		document.createElement("div")
+	);
+	this.$msgs.className = 'msgs';
+
+	this.$input = this.$root.appendChild(
+		document.createElement("textarea")
+	);
+
+	this.$input.addEventListener('keydown', this.onInpKeyDown.bind(this));
+
+	gSidebar.$root.appendChild(this.$root);
+};
+
+Chat.prototype.onInpKeyDown = function(e){
+
+	if ((e.keyCode != 13 && e.keyCode != 14) || e.shiftKey || e.altKey) return;
+
+	e.preventDefault();
+
+	var val = this.$input.value;
+	gPeers.sendPubChatMsg(val);
+	this.$input.value = '';
+};
+
+Chat.prototype.onPubMsg = function(peer, msg){
+	var $msg = document.createElement("div");
+
+	var $peer = $msg.appendChild(document.createElement("div"));
+	$peer.textContent = peer.name;
+
+	var $txt = $msg.appendChild(document.createElement("div"));
+	$txt.textContent = msg;
+
+	this.$msgs.appendChild(
+		$msg
+	);
+};
+function ContextMenu(){
+	// this.createDOM();
+	// this.addCommand("Kick", "kick");
+	// this.addCommand("Ban", "ban");
 }
 
 ContextMenu.prototype.createDOM = function(){
@@ -302,6 +351,7 @@ function Peer(uid){
 	this.analyserArray = new Uint8Array(this.analyser.frequencyBinCount);
 
 	if (this.uid == gUser.uid){
+		this.send = this.selfSend;
 		this.onAddStream({
 			stream: gLocalMediaStream.stream
 		});
@@ -317,14 +367,22 @@ function Peer(uid){
 	
 };
 
+Peer.prototype.selfSend = function(type){
+	type = ucmd[type];
+
+	this.processMsg(type, Array.prototype.slice.call(arguments, 1));
+};
+
 Peer.prototype.processAudio = function(e){
 	this.analyser.getByteFrequencyData(this.analyserArray);
 	var avg = 0;
 	for (var i = this.analyserArray.length; i--;)
 		avg += this.analyserArray[i];
 
-	this.$micDB.style.width =
-		(100 * avg / this.analyserArray.length / (this.analyser.maxDecibels - this.analyser.minDecibels)) + '%';
+	var pct = (100 * avg / this.analyserArray.length / (this.analyser.maxDecibels - this.analyser.minDecibels));
+
+	this.$lMicDB.style.height = this.$micDB.style.width = pct + '%';
+	this.$lMicToggle.dataset.db = pct;
 
 	requestAnimationFrame(this.processAudio);
 };
@@ -363,7 +421,27 @@ Peer.prototype.createDOM = function(){
 	this.$lname.className = "name";
 	this.$lname.textContent = this.name;
 
-	gSidebar.$peerlist.appendChild(this.$lroot);
+	this.$linfo = this.$lroot.appendChild(document.createElement("div"));
+	this.$linfo.className = "info";
+
+	this.$lMicDB = this.$linfo.appendChild(document.createElement("div"));
+	this.$lMicDB.className = "db";
+
+	this.$lMicToggle = this.$linfo.appendChild(document.createElement("div"));
+	this.$lMicToggle.className = "mic";
+
+	this.$lMicToggle.dataset.db = 0;
+
+	this.$lCamToggle = this.$linfo.appendChild(document.createElement("div"));
+	this.$lCamToggle.className = "cam";
+
+	this.$lCamToggle.dataset.vids = 0;
+
+
+	
+
+
+	gPeers.$lroot.appendChild(this.$lroot);
 };
 
 Peer.prototype.onNameChanged = function(){
@@ -380,10 +458,35 @@ Peer.prototype.createPeerConnection = function(){
 	this.peerConnection.onnegotiationneeded = this.onNegotiationNeeded.bind(this);
 
 	this.peerConnection.addStream(gLocalMediaStream.stream);
+
+	this.dataChannel = this.peerConnection.createDataChannel("");
+	this.dataChannel.onmessage = this.onDataChannelMessage.bind(this);
+	this.dataChannel.onopen = this.onDataChannelOpen.bind(this);
 };
 
-Peer.prototype.send = function(type, msg){
-	gSock.send(this.uid, type, msg);
+Peer.prototype.onDataChannelOpen = function(){
+
+};
+
+Peer.prototype.onDataChannelMessage = function(msg){
+	msg = JSON.parse(msg);
+
+	this.onProcessMsg(msg[0], msg.slice(1));
+};
+
+
+
+Peer.prototype.send = function(type){
+	type = ucmd[type];
+
+	if (this.dataChannel.readyState == "open")
+		this.dataChannel.send(JSON.stringify(
+			[type].concat(Array.prototype.slice.call(arguments, 1))
+		));
+	else
+		gSock.send(JSON.stringify(
+			[this.uid, type].concat(Array.prototype.slice.call(arguments, 1))
+		));
 };
 
 Peer.prototype.onIceCandidate = function(e){
@@ -419,12 +522,12 @@ Peer.prototype.onStreamChanged = function(){
 		this.$streams.removeChild($elt);
 
 	if (!this.stream){
-		this.$root.dataset.vids = 0;
+		this.$lCamToggle.dataset.vids = this.$root.dataset.vids = 0;
 		return;
 	}
 
 	var vidTracks = this.stream.getVideoTracks();
-	this.$root.dataset.vids = vidTracks.length;
+	this.$lCamToggle.dataset.vids = this.$root.dataset.vids = vidTracks.length;
 
 	vidTracks.forEach((function(track){
 		var $stream = document.createElement('video');
@@ -459,6 +562,10 @@ Peer.prototype.setName = function(name){
 Peer.prototype.processMsg = function(type, msg){
 
 	switch(type){
+
+		case ucmd.pubchat:
+			gChat.onPubMsg(this, msg[0]);
+		break;
 
 		case ucmd.answer:
 			this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg[0]), function(){});
@@ -505,7 +612,7 @@ Peer.prototype.onIceConnectionStateChange = function(){
 
 Peer.prototype.destroy = function(){
 	gPeers.$root.removeChild(this.$root);
-	gSidebar.$peerlist.removeChild(this.$lroot);
+	gPeers.$lroot.removeChild(this.$lroot);
 
 	this.peerConnection.close();
 	delete gPeers.peers[this.uid];
@@ -519,7 +626,13 @@ function Peers(){
 Peers.prototype.createDOM = function(){
 	this.$root = document.createElement("div");
 	this.$root.className = 'peers';
+
+	this.$lroot = this.$root.appendChild(
+		document.createElement("div")
+	);
+	this.$lroot.className = 'peerlist';
 	
+	gSidebar.$root.appendChild(this.$lroot);
 	gApp.$mainTable.appendChild(this.$root);
 };
 
@@ -550,19 +663,24 @@ Peers.prototype.processServerMsg = function(type, msg){
 		this.getPeer(msg[0]).setName(msg[1]);
 		break;
 	}
-}
+};
+
+Peers.prototype.sendPubChatMsg = function(msg){
+	for (var uid in this.peers)
+		this.peers[uid].send("pubchat", msg);
+};
 
 Peers.prototype.getPeer = function(uid){
 	var peer = this.peers[uid];
 	if (peer) return peer;
 
 	return (this.peers[uid] = new Peer(uid));
-}
+};
 
 Peers.prototype.onLocalStreamChanged = function(){
 	for (var p in this.peers)
 		this.peers[p].onLocalStreamChanged();
-}
+};
 function Selection(){
 	this.selection = [];
 	this.rect = {
@@ -778,11 +896,6 @@ Sidebar.prototype.createDOM = function(){
 	this.$root = document.createElement("div");
 	this.$root.className = 'sidebar';
 
-	this.$peerlist = this.$root.appendChild(
-		document.createElement("div")
-	);
-	this.$peerlist.className = 'peerlist';
-
 	gApp.$mainTable.appendChild(this.$root);
 }
 function Sock(){
@@ -795,10 +908,8 @@ Sock.prototype.ready = function(){
 	return this.sock.readyState == WebSocket.prototype.OPEN;
 };
 
-Sock.prototype.send = function(uid, type){
-	this.sock.send(JSON.stringify(
-		[uid, ucmd[type]].concat(Array.prototype.slice.call(arguments, 2))
-	));
+Sock.prototype.send = function(txt){
+	this.sock.send(txt);
 };
 
 Sock.prototype.sendAll = function(type){
@@ -872,7 +983,7 @@ User.prototype.setUID = function(uid){
 	exports.cmdt = constants("server","all");
 	exports.fscmd = constants("setname", "disconnected", "init");
 	exports.tscmd = constants("setname", "kick");
-	exports.ucmd = constants("icecandidate", "offer", "answer");
+	exports.ucmd = constants("icecandidate", "offer", "answer", "pubchat");
 
 })();
 window.onload = function(){

@@ -8,6 +8,7 @@ var gSettingsBar;
 var gSidebar;
 var gUser;
 var gAudioContext = new webkitAudioContext();
+var gChat;
 
 function AppController(){
 	gApp = this;
@@ -27,6 +28,8 @@ function AppController(){
 	gLocalMediaStream = this.localMediaStream = new LocalMediaStream();
 
 	gPeers = this.peers = new Peers();
+
+	gChat = this.chat = new Chat();
 
 	gSelection = this.selection = new Selection();
 

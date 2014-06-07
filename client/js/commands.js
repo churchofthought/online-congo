@@ -13,6 +13,6 @@
 	exports.cmdt = constants("server","all");
 	exports.fscmd = constants("setname", "disconnected", "init");
 	exports.tscmd = constants("setname", "kick");
-	exports.ucmd = constants("icecandidate", "offer", "answer");
+	exports.ucmd = constants("icecandidate", "offer", "answer", "pubchat");
 
 })();
