@@ -11,6 +11,17 @@
 	align-content: stretch
 
 	.msgs
+		word-wrap: break-word
+		> div
+			> div:first-child
+				clear: both
+
+			> div:nth-child(2n)
+				float: right
+
+			> div:nth-child(2n + 1)
+				clear: left
+				margin-right: 4em
 
 
 	textarea

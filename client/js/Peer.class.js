@@ -5,7 +5,7 @@ var rtcConfig = {
 };
 
 var rtcConstraints = {
-	optional: [],
+	optional: [{RtpDataChannels: true}],
 	mandatory: {
 		OfferToReceiveAudio: false,
 		OfferToReceiveVideo: true
@@ -136,13 +136,19 @@ Peer.prototype.createPeerConnection = function(){
 	this.dataChannel = this.peerConnection.createDataChannel("");
 	this.dataChannel.onmessage = this.onDataChannelMessage.bind(this);
 	this.dataChannel.onopen = this.onDataChannelOpen.bind(this);
+	this.dataChannel.onerror = this.onDataChannelError.bind(this);
 };
 
 Peer.prototype.onDataChannelOpen = function(){
+	
+};
 
+Peer.prototype.onDataChannelError = function(e){
+	console.log(e);
 };
 
 Peer.prototype.onDataChannelMessage = function(msg){
+
 	msg = JSON.parse(msg);
 
 	this.onProcessMsg(msg[0], msg.slice(1));
@@ -154,9 +160,16 @@ Peer.prototype.send = function(type){
 	type = ucmd[type];
 
 	if (this.dataChannel.readyState == "open")
-		this.dataChannel.send(JSON.stringify(
-			[type].concat(Array.prototype.slice.call(arguments, 1))
-		));
+		try {
+			this.dataChannel.send(JSON.stringify(
+				[type].concat(Array.prototype.slice.call(arguments, 1))
+			));
+		}catch(e){
+			console.log('')
+			gSock.send(JSON.stringify(
+				[this.uid, type].concat(Array.prototype.slice.call(arguments, 1))
+			));
+		}
 	else
 		gSock.send(JSON.stringify(
 			[this.uid, type].concat(Array.prototype.slice.call(arguments, 1))
@@ -238,7 +251,7 @@ Peer.prototype.processMsg = function(type, msg){
 	switch(type){
 
 		case ucmd.pubchat:
-			gChat.onPubMsg(this, msg[0]);
+			gChat.onPubMsg(this, msg[0], msg[1]);
 		break;
 
 		case ucmd.answer:

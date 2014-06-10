@@ -115,11 +115,16 @@ Chat.prototype.onInpKeyDown = function(e){
 	this.$input.value = '';
 };
 
-Chat.prototype.onPubMsg = function(peer, msg){
+Chat.prototype.onPubMsg = function(peer, date, msg){
+	date = new Date(+date);
+
 	var $msg = document.createElement("div");
 
 	var $peer = $msg.appendChild(document.createElement("div"));
 	$peer.textContent = peer.name;
+
+	var $date = $msg.appendChild(document.createElement("div"));
+	$date.textContent = date.toLocaleTimeString().replace(/:\d\d /, ' ');
 
 	var $txt = $msg.appendChild(document.createElement("div"));
 	$txt.textContent = msg;
@@ -337,7 +342,7 @@ var rtcConfig = {
 };
 
 var rtcConstraints = {
-	optional: [],
+	optional: [{RtpDataChannels: true}],
 	mandatory: {
 		OfferToReceiveAudio: false,
 		OfferToReceiveVideo: true
@@ -468,13 +473,19 @@ Peer.prototype.createPeerConnection = function(){
 	this.dataChannel = this.peerConnection.createDataChannel("");
 	this.dataChannel.onmessage = this.onDataChannelMessage.bind(this);
 	this.dataChannel.onopen = this.onDataChannelOpen.bind(this);
+	this.dataChannel.onerror = this.onDataChannelError.bind(this);
 };
 
 Peer.prototype.onDataChannelOpen = function(){
+	
+};
 
+Peer.prototype.onDataChannelError = function(e){
+	console.log(e);
 };
 
 Peer.prototype.onDataChannelMessage = function(msg){
+
 	msg = JSON.parse(msg);
 
 	this.onProcessMsg(msg[0], msg.slice(1));
@@ -486,9 +497,16 @@ Peer.prototype.send = function(type){
 	type = ucmd[type];
 
 	if (this.dataChannel.readyState == "open")
-		this.dataChannel.send(JSON.stringify(
-			[type].concat(Array.prototype.slice.call(arguments, 1))
-		));
+		try {
+			this.dataChannel.send(JSON.stringify(
+				[type].concat(Array.prototype.slice.call(arguments, 1))
+			));
+		}catch(e){
+			console.log('')
+			gSock.send(JSON.stringify(
+				[this.uid, type].concat(Array.prototype.slice.call(arguments, 1))
+			));
+		}
 	else
 		gSock.send(JSON.stringify(
 			[this.uid, type].concat(Array.prototype.slice.call(arguments, 1))
@@ -570,7 +588,7 @@ Peer.prototype.processMsg = function(type, msg){
 	switch(type){
 
 		case ucmd.pubchat:
-			gChat.onPubMsg(this, msg[0]);
+			gChat.onPubMsg(this, msg[0], msg[1]);
 		break;
 
 		case ucmd.answer:
@@ -647,7 +665,6 @@ Peers.prototype.processUserMsg = function(uid, type, msg){
 	if (!sender)
 		sender = this.peers[uid] = new Peer(uid, type != ucmd.offer);
 
-
 	sender.processMsg(type, msg);
 };
 
@@ -674,7 +691,7 @@ Peers.prototype.processServerMsg = function(type, msg){
 
 Peers.prototype.sendPubChatMsg = function(msg){
 	for (var uid in this.peers)
-		this.peers[uid].send("pubchat", msg);
+		this.peers[uid].send("pubchat", Date.now(), msg);
 };
 
 Peers.prototype.getPeer = function(uid){
@@ -920,19 +937,19 @@ Sock.prototype.send = function(txt){
 };
 
 Sock.prototype.sendAll = function(type){
-	this.sock.send(JSON.stringify(
+	this.send(JSON.stringify(
 		[cmdt.all, ucmd[type]].concat(Array.prototype.slice.call(arguments, 1))
 	));
 };
 
 Sock.prototype.sendServer = function(type){
-	this.sock.send(JSON.stringify(
+	this.send(JSON.stringify(
 		[cmdt.server, tscmd[type]].concat(Array.prototype.slice.call(arguments, 1))
 	));
 };
 
 Sock.prototype.arrSendServer = function(type, arr){
-	this.sock.send(JSON.stringify(
+	this.send(JSON.stringify(
 		[cmdt.server, tscmd[type]].concat(arr)
 	));
 }

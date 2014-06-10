@@ -22,7 +22,6 @@ Peers.prototype.processUserMsg = function(uid, type, msg){
 	if (!sender)
 		sender = this.peers[uid] = new Peer(uid, type != ucmd.offer);
 
-
 	sender.processMsg(type, msg);
 };
 
@@ -49,7 +48,7 @@ Peers.prototype.processServerMsg = function(type, msg){
 
 Peers.prototype.sendPubChatMsg = function(msg){
 	for (var uid in this.peers)
-		this.peers[uid].send("pubchat", msg);
+		this.peers[uid].send("pubchat", Date.now(), msg);
 };
 
 Peers.prototype.getPeer = function(uid){

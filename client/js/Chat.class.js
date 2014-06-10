@@ -31,11 +31,16 @@ Chat.prototype.onInpKeyDown = function(e){
 	this.$input.value = '';
 };
 
-Chat.prototype.onPubMsg = function(peer, msg){
+Chat.prototype.onPubMsg = function(peer, date, msg){
+	date = new Date(+date);
+
 	var $msg = document.createElement("div");
 
 	var $peer = $msg.appendChild(document.createElement("div"));
 	$peer.textContent = peer.name;
+
+	var $date = $msg.appendChild(document.createElement("div"));
+	$date.textContent = date.toLocaleTimeString().replace(/:\d\d /, ' ');
 
 	var $txt = $msg.appendChild(document.createElement("div"));
 	$txt.textContent = msg;
