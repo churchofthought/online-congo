@@ -58,7 +58,7 @@ SettingsBar.prototype.onMenuBtnClicked = function(e){
 	if ((this.$menuBtn.dataset.showmenu = !(this.$menuBtn.dataset.showmenu == "true"))){
 		setTimeout((function(){
 			window.addEventListener('click', this.hideMenuBtn);
-		}).bind(this), 0);
+		}).bind(this));
 	}
 };
 

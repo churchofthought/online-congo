@@ -10,24 +10,41 @@
 	align-items: stretch
 	align-content: stretch
 
+	border-bottom: .5em solid rgba(0,0,0,0.25)
+	resize: both
+
 	.msgs
+		flex-grow: 1
 		word-wrap: break-word
 		> div
-			> div:first-child
-				clear: both
+			padding: 0 .75em
 
-			> div:nth-child(2n)
+			> div:first-child
+				display: inline-block
+				background: no-repeat center center url('images/avatar.svg')
+				background-size: contain
+				width: 1em
+				height: 1em
+				vertical-align: middle
+
+			> div:nth-child(2)
+				display: inline-block
+				clear: both
+				margin-left: .5em
+				vertical-align: middle
+
+			> div:nth-child(2n + 3)
 				float: right
 
-			> div:nth-child(2n + 1)
+			> div:nth-child(2n + 4)
 				clear: left
+				margin-top: .5em
 				margin-right: 4em
 
-
 	textarea
+		box-sizing: border-box
+		width: 100%
 		margin: 0
 		padding: 0
-		max-width: 100%
-		min-width: 100%
-		width: 100%
-		flex-grow: 1
+		resize: none
+		line-height: 1.25
