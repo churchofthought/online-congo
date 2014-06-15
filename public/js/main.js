@@ -749,7 +749,9 @@ Peer.prototype.processMsg = function(type, msg){
 		break;
 
 		case ucmd.answer:
-			this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg[0]), function(){});
+			this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg[0]), function(){},function(e){
+				console.log(e);
+			});
 		break;
 
 		case ucmd.icecandidate:
@@ -765,9 +767,13 @@ Peer.prototype.processMsg = function(type, msg){
 				this.peerConnection.createAnswer((function(answer) {
 					this.peerConnection.setLocalDescription(answer, (function() {
 						this.send('answer', answer);
-					}).bind(this));
+					}).bind(this), function(e){
+						console.log(e);
+					});
 				}).bind(this), null, rtcConstraints);
-			}).bind(this));
+			}).bind(this), function(e){
+				console.log(e);
+			});
 		break;
 	}
 };
