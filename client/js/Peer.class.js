@@ -273,7 +273,9 @@ Peer.prototype.processMsg = function(type, msg){
 			try{
 				console.log(msg[0]);
 				this.peerConnection.addIceCandidate(new RTCIceCandidate(msg[0]));
-			}catch(e){}
+			}catch(e){
+				console.log(e);
+			}
 		break;
 
 		case ucmd.offer:
