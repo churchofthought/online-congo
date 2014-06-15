@@ -1,6 +1,6 @@
 var rtcConfig = { 
 	iceServers: [{ 
-		url: "stun:stun.l.google.com:19302" 
+		url: "stun:stunserver.org" 
 	}]
 };
 
@@ -31,10 +31,10 @@ function Peer(uid, dontSendOffer){
 		this.onLocalStreamChanged = this.onStreamChanged;
 	}else{
 		this.createPeerConnection();
-		// if (!dontSendOffer){
+		if (!dontSendOffer){
 			this.sendOffer();
 			this.sendArr('pubchathistory', gChat.pubMsgs);
-		// }
+		}
 	}
 
 	requestAnimationFrame(
@@ -207,7 +207,7 @@ Peer.prototype.onRemoveStream = function(e){
 };
 
 Peer.prototype.onNegotiationNeeded = function(){
-	this.sendOffer();
+	// this.sendOffer();
 };
 
 Peer.prototype.onStreamChanged = function(){
