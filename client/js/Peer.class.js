@@ -271,7 +271,6 @@ Peer.prototype.processMsg = function(type, msg){
 
 		case ucmd.icecandidate:
 			try{
-				console.log(msg[0]);
 				this.peerConnection.addIceCandidate(new RTCIceCandidate(msg[0]));
 			}catch(e){
 				console.log(e);
@@ -279,6 +278,7 @@ Peer.prototype.processMsg = function(type, msg){
 		break;
 
 		case ucmd.offer:
+			console.log(this.peerConnection.signalingState);
 			this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg[0]), (function() {
 				this.peerConnection.createAnswer((function(answer) {
 					this.peerConnection.setLocalDescription(answer, (function() {
