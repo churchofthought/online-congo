@@ -12,7 +12,7 @@ var rtcConstraints = {
 	}
 };
 
-function Peer(uid, dontSendOffer){
+function Peer(uid){
 
 	this.uid = uid;
 	this.name = "";
@@ -31,10 +31,9 @@ function Peer(uid, dontSendOffer){
 		this.onLocalStreamChanged = this.onStreamChanged;
 	}else{
 		this.createPeerConnection();
-		if (!dontSendOffer){
-			this.sendOffer();
+		this.sendOffer();
+		if (gChat.pubMsgs.length)
 			this.sendArr('pubchathistory', gChat.pubMsgs);
-		}
 	}
 
 	requestAnimationFrame(
@@ -167,20 +166,20 @@ Peer.prototype.send = function(type){
 Peer.prototype.sendArr = function(type, arr){
 	type = ucmd[type];
 
-	// if (this.dataChannel.readyState == "open")
-	// 	try {
-	// 		this.dataChannel.send(JSON.stringify(
-	// 			[type].concat(arr)
-	// 		));
-	// 	}catch(e){
+	if (this.dataChannel.readyState == "open")
+		try {
+			this.dataChannel.send(JSON.stringify(
+				[type].concat(arr)
+			));
+		}catch(e){
 			gSock.send(JSON.stringify(
 				[this.uid, type].concat(arr)
 			));
-	// 	}
-	// else
-	// 	gSock.send(JSON.stringify(
-	// 		[this.uid, type].concat(arr)
-	// 	));
+		}
+	else
+		gSock.send(JSON.stringify(
+			[this.uid, type].concat(arr)
+		));
 };
 
 Peer.prototype.onIceCandidate = function(e){
@@ -278,7 +277,6 @@ Peer.prototype.processMsg = function(type, msg){
 		break;
 
 		case ucmd.offer:
-			console.log(this.peerConnection.signalingState);
 			this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg[0]), (function() {
 				this.peerConnection.createAnswer((function(answer) {
 					this.peerConnection.setLocalDescription(answer, (function() {

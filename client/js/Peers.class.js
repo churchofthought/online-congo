@@ -23,8 +23,9 @@ Peers.prototype.createDOM = function(){
 
 Peers.prototype.processUserMsg = function(uid, type, msg){
 	var sender = this.peers[uid];
+
 	if (!sender)
-		sender = this.peers[uid] = new Peer(uid, type != ucmd.offer);
+		sender = this.peers[uid] = new Peer(uid, type);
 
 	sender.processMsg(type, msg);
 };
