@@ -167,20 +167,20 @@ Peer.prototype.send = function(type){
 Peer.prototype.sendArr = function(type, arr){
 	type = ucmd[type];
 
-	if (this.dataChannel.readyState == "open")
-		try {
-			this.dataChannel.send(JSON.stringify(
-				[type].concat(arr)
-			));
-		}catch(e){
+	// if (this.dataChannel.readyState == "open")
+	// 	try {
+	// 		this.dataChannel.send(JSON.stringify(
+	// 			[type].concat(arr)
+	// 		));
+	// 	}catch(e){
 			gSock.send(JSON.stringify(
 				[this.uid, type].concat(arr)
 			));
-		}
-	else
-		gSock.send(JSON.stringify(
-			[this.uid, type].concat(arr)
-		));
+	// 	}
+	// else
+	// 	gSock.send(JSON.stringify(
+	// 		[this.uid, type].concat(arr)
+	// 	));
 };
 
 Peer.prototype.onIceCandidate = function(e){
