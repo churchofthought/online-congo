@@ -12,6 +12,10 @@ Peers.prototype.createDOM = function(){
 		document.createElement("div")
 	);
 	this.$lroot.className = 'peerlist';
+	this.$lroot.style.height = '50vh';
+	this.$lroot.onresize = function(){
+		console.log(1);
+	};
 	
 	gSidebar.$root.appendChild(this.$lroot);
 	gApp.$mainTable.appendChild(this.$root);

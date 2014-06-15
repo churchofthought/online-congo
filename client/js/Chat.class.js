@@ -36,8 +36,12 @@ Chat.prototype.createDOM = function(){
 
 
 
-	this.$input.addEventListener('keydown', this.onInpKeyDown.bind(this));
-	this.$input.addEventListener('propertychange', this.onInpKeyDown.bind(this));
+	this.curVal = "";
+	this.onInpKeyDown = this.onInpKeyDown.bind(this);
+	this.$input.addEventListener('keydown', this.onInpKeyDown);
+	this.$input.addEventListener('propertychange', this.onInpKeyDown);
+	this.$input.addEventListener('change', this.onInpKeyDown);
+	this.$input.addEventListener('input', this.onInpKeyDown);
 
 	gSidebar.$root.appendChild(this.$root);
 
@@ -62,15 +66,18 @@ Chat.prototype.formSubmit = function(){
 };
 
 Chat.prototype.onInpKeyDown = function(e){
-	requestAnimationFrame(this.formSubmit);
-
-	if ((e.keyCode != 13 && e.keyCode != 14) || e.shiftKey || e.altKey) return;
-
-	e.preventDefault();
-
 	var val = this.$input.value;
-	gPeers.sendPubChatMsg(val);
-	this.$input.value = '';	
+
+	if ((e.keyCode == 13 || e.keyCode == 14) && !e.shiftKey && !e.altKey && val){
+		e.preventDefault();
+		gPeers.sendPubChatMsg(val);
+		this.$input.value = val = '';	
+	}
+
+	if (this.curVal != val){
+		this.curVal = val;
+		requestAnimationFrame(this.formSubmit);
+	}
 };
 
 
@@ -158,11 +165,10 @@ Chat.prototype.onPubMsg = function(name, date, msg){
 };
 
 Chat.prototype.insertPubMsg = function(name, date, msg, $node){
-	var $msg;
 	var $date;
 
 	if (name){
-		$msg = document.createElement("div");
+		var $msg = document.createElement("div");
 
 		var $icon = $msg.appendChild(document.createElement("div"));
 
@@ -182,8 +188,11 @@ Chat.prototype.insertPubMsg = function(name, date, msg, $node){
 	var $txt = $date.parentNode.insertBefore(document.createElement("div"), $date.nextSibling);
 	$txt.textContent = msg;
 
-	if (this.$msgs.scrollHeight - this.$msgs.clientHeight <= 64 + this.$msgs.scrollTop)
-		this.$msgs.scrollTop = this.$msgs.scrollHeight;
+	var $par = $date.parentNode;
+	if ($par.childNodes.length == 4)
+		$par.scrollIntoView(true);
+	else
+		$date.scrollIntoView(true);
 
 	return $date;
 }
