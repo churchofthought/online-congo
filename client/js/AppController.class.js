@@ -78,7 +78,7 @@ AppController.prototype.onSockMsg = function(e){
 };
 
 AppController.prototype.kick = function(sel){
-	this.sock.arrSendServer('kick', sel.map(function(p){
+	this.sock.serverSendArr('kick', sel.map(function(p){
 		return p.uid;
 	}));
 };

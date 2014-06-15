@@ -11,34 +11,39 @@
 	align-content: stretch
 
 	border-bottom: .5em solid rgba(0,0,0,0.25)
-	resize: both
 
 	.msgs
 		flex-grow: 1
 		word-wrap: break-word
+		overflow: auto
+
 		> div
-			padding: 0 .75em
+			border-top: .05em solid rgba(0,0,0,0.15)
+
+			padding: .25em .75em
+
+			&:nth-child(odd)
+				background: rgba(255,255,255,0.75)
 
 			> div:first-child
-				display: inline-block
+				float: left
 				background: no-repeat center center url('images/avatar.svg')
 				background-size: contain
 				width: 1em
 				height: 1em
-				vertical-align: middle
+				margin-bottom: .4em
 
 			> div:nth-child(2)
-				display: inline-block
-				clear: both
+				float: left
 				margin-left: .5em
-				vertical-align: middle
+				margin-top: -.1em
 
 			> div:nth-child(2n + 3)
+				clear: left
 				float: right
 
 			> div:nth-child(2n + 4)
 				clear: left
-				margin-top: .5em
 				margin-right: 4em
 
 	textarea

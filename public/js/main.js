@@ -78,11 +78,13 @@ AppController.prototype.onSockMsg = function(e){
 };
 
 AppController.prototype.kick = function(sel){
-	this.sock.arrSendServer('kick', sel.map(function(p){
+	this.sock.serverSendArr('kick', sel.map(function(p){
 		return p.uid;
 	}));
 };
 function Chat(){
+	this.pubMsgs = [];
+
 	this.createDOM();
 }
 
@@ -155,27 +157,120 @@ Chat.prototype.onInpKeyDown = function(e){
 	this.$input.value = '';	
 };
 
-Chat.prototype.onPubMsg = function(peer, date, msg){
-	date = new Date(+date);
 
-	var $msg = document.createElement("div");
+function binaryIndexOfDates(arr, searchElement) {
+  var minIndex = 0;
+  var maxIndex = arr.length - 1;
+  var currentIndex;
+  var currentElement;
 
-	var $icon = $msg.appendChild(document.createElement("div"));
+  while (minIndex <= maxIndex) {
+      currentIndex = (minIndex + maxIndex) / 2 | 0;
+      currentElement = +(arr[currentIndex].dataset.d);
 
-	var $peer = $msg.appendChild(document.createElement("div"));
-	$peer.textContent = peer.name;
+      if (currentElement < searchElement) {
+          minIndex = currentIndex + 1;
+      }
+      else if (currentElement > searchElement) {
+          maxIndex = currentIndex - 1;
+      }
+      else {
+          return currentIndex;
+      }
+  }
 
+  return currentIndex;
+};
 
-	var $date = $msg.appendChild(document.createElement("div"));
-	$date.textContent = date.toLocaleTimeString().replace(/:\d\d /, ' ');
+Chat.prototype.gotPubHistory = function(msgs){
 
-	var $txt = $msg.appendChild(document.createElement("div"));
+	var $dates = Array.prototype.slice.call(
+		this.$msgs.querySelectorAll('.msgs > div > div:nth-child(2n + 3)')
+	);
+	
+	for (var i = 0; i < msgs.length; i += 3){
+		var name = msgs[i];
+		var date = msgs[i + 1];
+		var msg = msgs[i + 2];
+
+		var insertionIdx = binaryIndexOfDates($dates, date);
+		var $insertionNode = $dates[insertionIdx];
+		if ($insertionNode){
+			var $ns = $insertionNode.nextSibling;
+			if ($insertionNode.parentNode.childNodes[1].textContent == name){
+				// dupe message
+				if ($insertionNode.dataset.d == date && $ns.textContent == msg)
+					continue;
+
+				$dates.splice(insertionIdx + 1, 0, 
+					this.insertPubMsg(null, date, msg, $ns)
+				);
+			}else{
+				if ($ns == $ns.parentNode.lastChild)
+					$dates.splice(insertionIdx + 1, 0, 
+						this.insertPubMsg(name, date, msg, $insertionNode.parentNode)
+					);
+				else{
+					// todo
+					// we need to split the message up, and insert between it
+				}
+			}
+		}else{
+			$dates.push(
+				this.insertPubMsg(name, date, msg, null)
+			);
+		}
+
+		this.pubMsgs.push(name);
+		this.pubMsgs.push(date);
+		this.pubMsgs.push(msg);
+	}
+};
+
+Chat.prototype.onPubMsg = function(name, date, msg){
+	this.pubMsgs.push(name);
+	this.pubMsgs.push(date);
+	this.pubMsgs.push(msg);
+
+	var $msg = this.$msgs.lastChild;
+
+	if ($msg && $msg.childNodes[1].textContent == name){
+		this.insertPubMsg(null, date, msg, $msg.lastChild);
+	}else{
+		this.insertPubMsg(name, date, msg, $msg);
+	}
+};
+
+Chat.prototype.insertPubMsg = function(name, date, msg, $node){
+	var $msg;
+	var $date;
+
+	if (name){
+		$msg = document.createElement("div");
+
+		var $icon = $msg.appendChild(document.createElement("div"));
+
+		var $peer = $msg.appendChild(document.createElement("div"));
+		$peer.textContent = name;
+
+		$date = $msg.appendChild(document.createElement("div"));
+
+		this.$msgs.insertBefore($msg, $node && $node.nextSibling);
+	}else{
+		$date = $node.parentNode.insertBefore(document.createElement("div"), $node.nextSibling);
+	}
+
+	$date.dataset.d = date;
+	$date.textContent = (new Date(+date)).toLocaleTimeString().replace(/:\d\d /, ' ');
+
+	var $txt = $date.parentNode.insertBefore(document.createElement("div"), $date.nextSibling);
 	$txt.textContent = msg;
 
-	this.$msgs.appendChild(
-		$msg
-	);
-};
+	if (this.$msgs.scrollHeight - this.$msgs.clientHeight <= 64 + this.$msgs.scrollTop)
+		this.$msgs.scrollTop = this.$msgs.scrollHeight;
+
+	return $date;
+}
 function ContextMenu(){
 	// this.createDOM();
 	// this.addCommand("Kick", "kick");
@@ -411,8 +506,10 @@ function Peer(uid, dontSendOffer){
 		this.onLocalStreamChanged = this.onStreamChanged;
 	}else{
 		this.createPeerConnection();
-		if (!dontSendOffer)
+		if (!dontSendOffer){
 			this.sendOffer();
+			this.sendArr('pubchathistory', gChat.pubMsgs);
+		}
 	}
 
 	requestAnimationFrame(
@@ -537,22 +634,27 @@ Peer.prototype.onDataChannelMessage = function(msg){
 
 
 Peer.prototype.send = function(type){
+	this.sendArr(
+		type, Array.prototype.slice.call(arguments, 1)
+	);
+};
+
+Peer.prototype.sendArr = function(type, arr){
 	type = ucmd[type];
 
 	if (this.dataChannel.readyState == "open")
 		try {
 			this.dataChannel.send(JSON.stringify(
-				[type].concat(Array.prototype.slice.call(arguments, 1))
+				[type].concat(arr)
 			));
 		}catch(e){
-			console.log('')
 			gSock.send(JSON.stringify(
-				[this.uid, type].concat(Array.prototype.slice.call(arguments, 1))
+				[this.uid, type].concat(arr)
 			));
 		}
 	else
 		gSock.send(JSON.stringify(
-			[this.uid, type].concat(Array.prototype.slice.call(arguments, 1))
+			[this.uid, type].concat(arr)
 		));
 };
 
@@ -630,8 +732,12 @@ Peer.prototype.processMsg = function(type, msg){
 
 	switch(type){
 
+		case ucmd.pubchathistory:
+			gChat.gotPubHistory(msg);
+		break;
+
 		case ucmd.pubchat:
-			gChat.onPubMsg(this, msg[0], msg[1]);
+			gChat.onPubMsg(this.name, msg[0], msg[1]);
 		break;
 
 		case ucmd.answer:
@@ -980,18 +1086,24 @@ Sock.prototype.send = function(txt){
 };
 
 Sock.prototype.sendAll = function(type){
+	this.sendAllArr(
+		type, Array.prototype.slice.call(arguments, 1)
+	);
+};
+
+Sock.prototype.sendAllArr = function(type, arr){
 	this.send(JSON.stringify(
-		[cmdt.all, ucmd[type]].concat(Array.prototype.slice.call(arguments, 1))
+		[cmdt.all, ucmd[type]].concat(arr)
 	));
 };
 
 Sock.prototype.sendServer = function(type){
-	this.send(JSON.stringify(
-		[cmdt.server, tscmd[type]].concat(Array.prototype.slice.call(arguments, 1))
-	));
+	this.sendServerArr(
+		type, Array.prototype.slice.call(arguments, 1)
+	);
 };
 
-Sock.prototype.arrSendServer = function(type, arr){
+Sock.prototype.sendServerArr = function(type, arr){
 	this.send(JSON.stringify(
 		[cmdt.server, tscmd[type]].concat(arr)
 	));
@@ -1050,7 +1162,7 @@ User.prototype.setUID = function(uid){
 	exports.cmdt = constants("server","all");
 	exports.fscmd = constants("setname", "disconnected", "init");
 	exports.tscmd = constants("setname", "kick");
-	exports.ucmd = constants("icecandidate", "offer", "answer", "pubchat");
+	exports.ucmd = constants("icecandidate", "offer", "answer", "pubchat", "pubchathistory");
 
 })();
 window.onload = function(){

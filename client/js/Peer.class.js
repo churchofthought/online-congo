@@ -31,8 +31,10 @@ function Peer(uid, dontSendOffer){
 		this.onLocalStreamChanged = this.onStreamChanged;
 	}else{
 		this.createPeerConnection();
-		if (!dontSendOffer)
+		if (!dontSendOffer){
 			this.sendOffer();
+			this.sendArr('pubchathistory', gChat.pubMsgs);
+		}
 	}
 
 	requestAnimationFrame(
@@ -157,22 +159,27 @@ Peer.prototype.onDataChannelMessage = function(msg){
 
 
 Peer.prototype.send = function(type){
+	this.sendArr(
+		type, Array.prototype.slice.call(arguments, 1)
+	);
+};
+
+Peer.prototype.sendArr = function(type, arr){
 	type = ucmd[type];
 
 	if (this.dataChannel.readyState == "open")
 		try {
 			this.dataChannel.send(JSON.stringify(
-				[type].concat(Array.prototype.slice.call(arguments, 1))
+				[type].concat(arr)
 			));
 		}catch(e){
-			console.log('')
 			gSock.send(JSON.stringify(
-				[this.uid, type].concat(Array.prototype.slice.call(arguments, 1))
+				[this.uid, type].concat(arr)
 			));
 		}
 	else
 		gSock.send(JSON.stringify(
-			[this.uid, type].concat(Array.prototype.slice.call(arguments, 1))
+			[this.uid, type].concat(arr)
 		));
 };
 
@@ -250,8 +257,12 @@ Peer.prototype.processMsg = function(type, msg){
 
 	switch(type){
 
+		case ucmd.pubchathistory:
+			gChat.gotPubHistory(msg);
+		break;
+
 		case ucmd.pubchat:
-			gChat.onPubMsg(this, msg[0], msg[1]);
+			gChat.onPubMsg(this.name, msg[0], msg[1]);
 		break;
 
 		case ucmd.answer:

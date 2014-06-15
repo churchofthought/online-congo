@@ -13,18 +13,24 @@ Sock.prototype.send = function(txt){
 };
 
 Sock.prototype.sendAll = function(type){
+	this.sendAllArr(
+		type, Array.prototype.slice.call(arguments, 1)
+	);
+};
+
+Sock.prototype.sendAllArr = function(type, arr){
 	this.send(JSON.stringify(
-		[cmdt.all, ucmd[type]].concat(Array.prototype.slice.call(arguments, 1))
+		[cmdt.all, ucmd[type]].concat(arr)
 	));
 };
 
 Sock.prototype.sendServer = function(type){
-	this.send(JSON.stringify(
-		[cmdt.server, tscmd[type]].concat(Array.prototype.slice.call(arguments, 1))
-	));
+	this.sendServerArr(
+		type, Array.prototype.slice.call(arguments, 1)
+	);
 };
 
-Sock.prototype.arrSendServer = function(type, arr){
+Sock.prototype.sendServerArr = function(type, arr){
 	this.send(JSON.stringify(
 		[cmdt.server, tscmd[type]].concat(arr)
 	));

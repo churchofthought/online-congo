@@ -20,19 +20,17 @@ var acmd = cmds.acmd;
 
 
 WebSocketConnection.prototype.serverSend = function(type){
+	this.serverSendArr(
+		type, Array.prototype.slice.call(arguments, 1)
+	);
+};
 
+WebSocketConnection.prototype.serverSendArr = function(type, arr){
 	this.sendUTF(JSON.stringify([
 		cmdt.server,
 		fscmd[type]
-	].concat(Array.prototype.slice.call(arguments, 1))));
+	].concat(arr)));
 };
-
-// WebSocketConnection.prototype.arrServerSend = function(type, arr){
-// 	this.sendUTF(JSON.stringify([
-// 		cmdt.server,
-// 		fscmd[type]
-// 	].concat(arr)));
-// };
 
 function getFirstAvailableName(name){
 	if (!isNameTaken(name)) return name;
@@ -90,11 +88,17 @@ new WebSocketServer({
 });
 
 function serverSendAll(type){
+	serverSendAllArr(
+		type, Array.prototype.slice.call(arguments, 1)
+	);
+}
+
+function serverSendAllArr(type, arr){
 
 	var o = JSON.stringify([
 		cmdt.server,
 		fscmd[type]
-	].concat(Array.prototype.slice.call(arguments, 1)));
+	].concat(arr));
 
 	for (var k in connections)
 		connections[k].sendUTF(o);
