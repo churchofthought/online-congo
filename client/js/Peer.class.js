@@ -279,17 +279,17 @@ Peer.prototype.processMsg = function(type, msg){
 		break;
 
 		case ucmd.offer:
-			this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg[0]), (function() {
-				this.peerConnection.createAnswer((function(answer) {
-					this.peerConnection.setLocalDescription(answer, (function() {
+			this.peerConnection.createAnswer((function(answer) {
+				this.peerConnection.setLocalDescription(answer, (function() {
+					this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg[0]), (function() {
 						this.send('answer', answer);
 					}).bind(this), function(e){
 						console.log(e);
 					});
-				}).bind(this), null, rtcConstraints);
-			}).bind(this), function(e){
-				console.log(e);
-			});
+				}).bind(this), function(e){
+					console.log(e);
+				});
+			}).bind(this), null, rtcConstraints);
 		break;
 	}
 };
