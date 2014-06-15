@@ -755,6 +755,7 @@ Peer.prototype.processMsg = function(type, msg){
 
 		case ucmd.icecandidate:
 			try{
+				console.log(msg[0]);
 				this.peerConnection.addIceCandidate(new RTCIceCandidate(msg[0]));
 			}catch(e){}
 		break;
