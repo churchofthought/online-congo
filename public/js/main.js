@@ -533,9 +533,6 @@ function Peer(uid){
 		});
 		this.onLocalStreamChanged = this.onStreamChanged;
 	}else{
-		this.createAnsweredPeerConnection();
-		this.createOfferedPeerConnection();
-
 		this.sendOffer();
 		if (gChat.pubMsgs.length)
 			this.sendArr('pubchathistory', gChat.pubMsgs);
@@ -630,6 +627,8 @@ Peer.prototype.onNameChanged = function(){
 }
 
 Peer.destroyRTCConnection = function(pc){
+	if (!pc) return;
+
 	pc.onicecandidate =
 	pc.oniceconnectionstatechange =
 	pc.onsignalingstatechange =
@@ -638,6 +637,8 @@ Peer.destroyRTCConnection = function(pc){
 }
 
 Peer.prototype.createOfferedPeerConnection = function(){
+	Peer.destroyRTCConnection(this.offeredConnection);
+
 	this.offeredConnection = this.createPeerConnection();
 	this.offeredConnection.addStream(gLocalMediaStream.stream);
 
@@ -645,6 +646,8 @@ Peer.prototype.createOfferedPeerConnection = function(){
 };
 
 Peer.prototype.createAnsweredPeerConnection = function(){
+	Peer.destroyRTCConnection(this.answeredConnection);
+
 	this.answeredConnection = this.createPeerConnection();
 	this.answeredConnection.onaddstream = this.onAddStream;
 	this.answeredConnection.onremovestream = this.onRemoveStream;
@@ -715,9 +718,9 @@ Peer.prototype.sendArr = function(type, arr){
 };
 
 Peer.prototype.getOpenDataChannel = function(){
-	if (this.offeredDC.readyState == "open")
+	if (this.offeredDC && this.offeredDC.readyState == "open")
 		return this.offeredDC;
-	if (this.answeredDC.readyState == "open")
+	if (this.answeredDC && this.answeredDC.readyState == "open")
 		return this.answeredDC;
 }
 
@@ -815,8 +818,7 @@ Peer.prototype.processMsg = function(type, msg){
 		break;
 
 		case ucmd.offer:
-			// if (["have-local-offer", "closed"].indexOf(this.peerConnection.signalingState) >= 0)
-			// 	this.createPeerConnection();
+			this.createAnsweredPeerConnection();
 			this.answeredConnection.setRemoteDescription(new RTCSessionDescription(msg[0]), (function() {
 				this.answeredConnection.createAnswer((function(answer) {
 					this.answeredConnection.setLocalDescription(answer, (function() {
@@ -842,6 +844,7 @@ Peer.prototype.queryConnections = function(f){
 }
 
 Peer.prototype.sendOffer = function(){
+	this.createOfferedPeerConnection();
 	this.offeredConnection.createOffer((function(offer) {
 		this.offeredConnection.setLocalDescription(offer, (function(){
 			this.send('offer', offer);
