@@ -74,8 +74,7 @@ new WebSocketServer({
 	httpServer: httpServer
 }).on('connect', function(c){
 
-	// todo uid should be md5ed with a salt and some bullshit
-	c.uid = crypto.createHash('sha1').update(crypto.randomBytes(128)).digest('hex');
+	c.uid = crypto.createHash('md5').update(crypto.randomBytes(64)).digest('hex');
 	c.on('message', gotMsg);
 	connections[c.uid] = c;
 

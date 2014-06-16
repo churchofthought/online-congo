@@ -1,14 +1,20 @@
 var rtcConfig = { 
 	iceServers: [{ 
-		url: "stun:stunserver.org" 
+		url: "stun:stun.l.google.com:19302" 
 	}]
 };
 
 var rtcConstraints = {
-	optional: [{RtpDataChannels: true}],
+	optional: [{
+		RtpDataChannels: true
+	},{
+		DtlsSrtpKeyAgreement: true
+	}],
 	mandatory: {
-		OfferToReceiveAudio: false,
-		OfferToReceiveVideo: true
+		OfferToReceiveAudio: true,
+		OfferToReceiveVideo: true,
+		VoiceActivityDetection: true,
+    	IceRestart: true
 	}
 };
 
@@ -20,8 +26,21 @@ function Peer(uid){
 	this.createDOM();
 	this.onStreamChanged = this.onStreamChanged.bind(this);
 
+
+	// todo
+	// we might be able to do this with getStats
 	this.analyser = gAudioContext.createAnalyser();
 	this.analyserArray = new Uint8Array(this.analyser.frequencyBinCount);
+
+
+	this.onIceCandidate = this.onIceCandidate.bind(this);
+	this.onAddStream = this.onAddStream.bind(this);
+	this.onRemoveStream = this.onRemoveStream.bind(this);
+	this.onIceConnectionStateChange = this.onIceConnectionStateChange.bind(this);
+	this.onNegotiationNeeded = this.onNegotiationNeeded.bind(this);
+	this.onDataChannelMessage = this.onDataChannelMessage.bind(this);
+	this.onDataChannelOpen = this.onDataChannelOpen.bind(this);
+	this.onDataChannelError = this.onDataChannelError.bind(this);
 
 	if (this.uid == gUser.uid){
 		this.send = this.selfSend;
@@ -30,7 +49,9 @@ function Peer(uid){
 		});
 		this.onLocalStreamChanged = this.onStreamChanged;
 	}else{
-		this.createPeerConnection();
+		this.createOfferedPeerConnection();
+		this.createAnsweredPeerConnection();
+
 		this.sendOffer();
 		if (gChat.pubMsgs.length)
 			this.sendArr('pubchathistory', gChat.pubMsgs);
@@ -124,21 +145,38 @@ Peer.prototype.onNameChanged = function(){
 	this.$lname.textContent = this.name;
 }
 
-Peer.prototype.createPeerConnection = function(){
-	this.peerConnection = new webkitRTCPeerConnection(rtcConfig, rtcConstraints);
-	this.peerConnection.onicecandidate = this.onIceCandidate.bind(this);
-	this.peerConnection.onaddstream = this.onAddStream.bind(this);
-	this.peerConnection.onremovestream = this.onRemoveStream.bind(this);
-	this.peerConnection.oniceconnectionstatechange = this.onIceConnectionStateChange.bind(this);
-	this.peerConnection.onnegotiationneeded = this.onNegotiationNeeded.bind(this);
+Peer.prototype.createOfferedPeerConnection = function(){
+	this.offeredConnection = this.createPeerConnection();
+	this.offeredConnection.addStream(gLocalMediaStream.stream);
 
-	this.peerConnection.addStream(gLocalMediaStream.stream);
-
-	this.dataChannel = this.peerConnection.createDataChannel("");
-	this.dataChannel.onmessage = this.onDataChannelMessage.bind(this);
-	this.dataChannel.onopen = this.onDataChannelOpen.bind(this);
-	this.dataChannel.onerror = this.onDataChannelError.bind(this);
+	this.offeredDC = this.createDataChannel(this.offeredConnection);
 };
+
+Peer.prototype.createAnsweredPeerConnection = function(){
+	this.answeredConnection = this.createPeerConnection();
+	this.answeredConnection.onaddstream = this.onAddStream;
+	this.answeredConnection.onremovestream = this.onRemoveStream;
+
+	this.answeredDC = this.createDataChannel(this.answeredConnection);
+}
+
+Peer.prototype.createPeerConnection = function(){
+	var pc = new webkitRTCPeerConnection(rtcConfig, rtcConstraints);
+	pc.onicecandidate = this.onIceCandidate;
+	pc.oniceconnectionstatechange = this.onIceConnectionStateChange;
+	pc.onnegotiationneeded = this.onNegotiationNeeded;
+
+	return pc;
+};
+
+Peer.prototype.createDataChannel = function(pc){
+	var dc = pc.createDataChannel("");
+	dc.onmessage = this.onDataChannelMessage;
+	dc.onopen = this.onDataChannelOpen;
+	dc.onerror = this.onDataChannelError;
+
+	return dc;
+}
 
 Peer.prototype.onDataChannelOpen = function(){
 	
@@ -166,9 +204,11 @@ Peer.prototype.send = function(type){
 Peer.prototype.sendArr = function(type, arr){
 	type = ucmd[type];
 
-	if (this.dataChannel.readyState == "open")
+	var dc = this.getOpenDataChannel();
+
+	if (dc)
 		try {
-			this.dataChannel.send(JSON.stringify(
+			dc.send(JSON.stringify(
 				[type].concat(arr)
 			));
 		}catch(e){
@@ -182,12 +222,19 @@ Peer.prototype.sendArr = function(type, arr){
 		));
 };
 
+Peer.prototype.getOpenDataChannel = function(){
+	if (this.offeredDC.readyState == "open")
+		return this.offeredDC;
+	if (this.answeredDC.readyState == "open")
+		return this.answeredDC;
+}
+
 Peer.prototype.onIceCandidate = function(e){
 
 	var candidate = e.candidate;
 
 	if (candidate)
-		this.send('icecandidate', candidate);
+		this.send('icecandidate', +(e.target == this.offeredConnection), candidate);
 };
 
 Peer.prototype.onAddStream = function(e){
@@ -265,38 +312,46 @@ Peer.prototype.processMsg = function(type, msg){
 		break;
 
 		case ucmd.answer:
-			this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg[0]), function(){},function(e){
+			this.offeredConnection.setRemoteDescription(new RTCSessionDescription(msg[0]), function(){}, (function(e){
 				console.log(e);
-			});
+			}).bind(this));
 		break;
 
 		case ucmd.icecandidate:
-			try{
-				this.peerConnection.addIceCandidate(new RTCIceCandidate(msg[0]));
-			}catch(e){
+			var candidate = new RTCIceCandidate(msg[1]);
+			try {
+				(msg[0] ? this.answeredConnection : this.offeredConnection).addIceCandidate(candidate);
+			} catch(e) {
 				console.log(e);
 			}
 		break;
 
 		case ucmd.offer:
-			this.peerConnection.createAnswer((function(answer) {
-				this.peerConnection.setLocalDescription(answer, (function() {
-					this.peerConnection.setRemoteDescription(new RTCSessionDescription(msg[0]), (function() {
+			// if (["have-local-offer", "closed"].indexOf(this.peerConnection.signalingState) >= 0)
+			// 	this.createPeerConnection();
+			this.answeredConnection.setRemoteDescription(new RTCSessionDescription(msg[0]), (function() {
+				this.answeredConnection.createAnswer((function(answer) {
+					this.answeredConnection.setLocalDescription(answer, (function() {
 						this.send('answer', answer);
-					}).bind(this), function(e){
+					}).bind(this), (function(e){
 						console.log(e);
-					});
-				}).bind(this), function(e){
-					console.log(e);
-				});
-			}).bind(this), null, rtcConstraints);
+					}).bind(this));
+				}).bind(this), null, rtcConstraints);
+			}).bind(this), function(e){
+				console.log(e);
+			});
 		break;
 	}
 };
 
+Peer.prototype.withConnections = function(f){
+	f(this.offeredConnection);
+	f(this.answeredConnection);
+}
+
 Peer.prototype.sendOffer = function(){
-	this.peerConnection.createOffer((function(offer) {
-		this.peerConnection.setLocalDescription(offer, (function(){
+	this.offeredConnection.createOffer((function(offer) {
+		this.offeredConnection.setLocalDescription(offer, (function(){
 			this.send('offer', offer);
 		}).bind(this));
 	}).bind(this), null, rtcConstraints);
@@ -311,14 +366,18 @@ Peer.prototype.setSelected = function(selected){
 };
 
 Peer.prototype.onIceConnectionStateChange = function(){
-	if (this.peerConnection.iceConnectionState == "disconnected")
-		this.destroy();
+	// todo
+	// if (.iceConnectionState == "disconnected")
+	// 	this.destroy();
 };
 
 Peer.prototype.destroy = function(){
 	gPeers.$root.removeChild(this.$root);
 	gPeers.$lroot.removeChild(this.$lroot);
 
-	this.peerConnection.close();
+	this.withConnections(function(pc){
+		pc.close();
+	});
+
 	delete gPeers.peers[this.uid];
 };
