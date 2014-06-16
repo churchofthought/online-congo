@@ -148,7 +148,14 @@ Peer.destroyRTCConnection = function(pc){
 	pc.onicecandidate =
 	pc.oniceconnectionstatechange =
 	pc.onsignalingstatechange =
+	pc.onaddstream = 
+	pc.onremovestream =
 		null;
+
+	pc.getLocalStreams().forEach(function(s){
+		pc.removeStream(s);
+	});
+
 	pc.close();
 }
 
@@ -157,6 +164,8 @@ Peer.prototype.createOfferedPeerConnection = function(){
 
 	this.offeredConnection = this.createPeerConnection();
 	this.offeredConnection.addStream(gLocalMediaStream.stream);
+
+	destroyDataChannel(this.offeredDC);
 
 	this.offeredDC = this.createDataChannel(this.offeredConnection);
 };
@@ -167,6 +176,8 @@ Peer.prototype.createAnsweredPeerConnection = function(){
 	this.answeredConnection = this.createPeerConnection();
 	this.answeredConnection.onaddstream = this.onAddStream;
 	this.answeredConnection.onremovestream = this.onRemoveStream;
+
+	destroyDataChannel(this.answeredDC);
 
 	this.answeredDC = this.createDataChannel(this.answeredConnection);
 }
@@ -353,7 +364,18 @@ Peer.prototype.processMsg = function(type, msg){
 Peer.prototype.withConnections = function(f){
 	f(this.offeredConnection);
 	f(this.answeredConnection);
-}
+};
+
+Peer.prototype.withChannels = function(f){
+	f(this.offeredDC);
+	f(this.answeredDC);
+};
+
+Peer.destroyDataChannel = function(dc){
+	if (!dc) return;
+	
+	dc.close();
+};
 
 Peer.prototype.queryConnections = function(f){
 	return f(this.offeredConnection) && f(this.answeredConnection);
@@ -387,7 +409,7 @@ Peer.prototype.onIceConnectionStateChange = function(e){
 Peer.prototype.onSignalingStateChange = function(e){
 	console.log("sig", e.target.signalingState);
 	if (this.queryConnections(function(pc){
-		return pc.signalingState == "closed";
+		return pc.signalingState == "closed" || pc.signalingState == "closing";
 	}))
 		this.destroy();
 }
@@ -397,6 +419,7 @@ Peer.prototype.destroy = function(){
 	gPeers.$lroot.removeChild(this.$lroot);
 
 	this.withConnections(Peer.destroyRTCConnection);
+	this.withChannels(Peer.destroyDataChannel);
 
 	delete gPeers.peers[this.uid];
 };
