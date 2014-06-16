@@ -1,6 +1,6 @@
 var rtcConfig = { 
 	iceServers: [{ 
-		url: "stun:stunserver.org" 
+		url: "stun:stun.l.google.com:19302" 
 	}]
 };
 
@@ -37,7 +37,7 @@ function Peer(uid){
 	this.onAddStream = this.onAddStream.bind(this);
 	this.onRemoveStream = this.onRemoveStream.bind(this);
 	this.onIceConnectionStateChange = this.onIceConnectionStateChange.bind(this);
-	this.onNegotiationNeeded = this.onNegotiationNeeded.bind(this);
+	this.onSignalingStateChange = this.onSignalingStateChange.bind(this);
 	this.onDataChannelMessage = this.onDataChannelMessage.bind(this);
 	this.onDataChannelOpen = this.onDataChannelOpen.bind(this);
 	this.onDataChannelError = this.onDataChannelError.bind(this);
@@ -49,8 +49,8 @@ function Peer(uid){
 		});
 		this.onLocalStreamChanged = this.onStreamChanged;
 	}else{
-		this.createOfferedPeerConnection();
 		this.createAnsweredPeerConnection();
+		this.createOfferedPeerConnection();
 
 		this.sendOffer();
 		if (gChat.pubMsgs.length)
@@ -145,6 +145,14 @@ Peer.prototype.onNameChanged = function(){
 	this.$lname.textContent = this.name;
 }
 
+Peer.destroyRTCConnection = function(pc){
+	pc.onicecandidate =
+	pc.oniceconnectionstatechange =
+	pc.onsignalingstatechange =
+		null;
+	pc.close();
+}
+
 Peer.prototype.createOfferedPeerConnection = function(){
 	this.offeredConnection = this.createPeerConnection();
 	this.offeredConnection.addStream(gLocalMediaStream.stream);
@@ -164,7 +172,7 @@ Peer.prototype.createPeerConnection = function(){
 	var pc = new webkitRTCPeerConnection(rtcConfig, rtcConstraints);
 	pc.onicecandidate = this.onIceCandidate;
 	pc.oniceconnectionstatechange = this.onIceConnectionStateChange;
-	pc.onnegotiationneeded = this.onNegotiationNeeded;
+	pc.onsignalingstatechange = this.onSignalingStateChange;
 
 	return pc;
 };
@@ -250,10 +258,6 @@ Peer.prototype.onRemoveStream = function(e){
 	this.analyser.disconnect();
 
 	this.onStreamChanged();
-};
-
-Peer.prototype.onNegotiationNeeded = function(){
-	// this.sendOffer();
 };
 
 Peer.prototype.onStreamChanged = function(){
@@ -349,6 +353,10 @@ Peer.prototype.withConnections = function(f){
 	f(this.answeredConnection);
 }
 
+Peer.prototype.queryConnections = function(f){
+	return f(this.offeredConnection) && f(this.answeredConnection);
+}
+
 Peer.prototype.sendOffer = function(){
 	this.offeredConnection.createOffer((function(offer) {
 		this.offeredConnection.setLocalDescription(offer, (function(){
@@ -365,19 +373,27 @@ Peer.prototype.setSelected = function(selected){
 	this.$root.dataset.selected = selected;
 };
 
-Peer.prototype.onIceConnectionStateChange = function(){
-	// todo
-	// if (.iceConnectionState == "disconnected")
-	// 	this.destroy();
+Peer.prototype.onIceConnectionStateChange = function(e){
+	console.log("ice",e.target.iceConnectionState);
+	if (this.queryConnections(function(pc){
+		return pc.iceConnectionState == "closed" || pc.iceConnectionState == "disconnected";
+	}))
+		this.destroy();
 };
+
+Peer.prototype.onSignalingStateChange = function(e){
+	console.log("sig", e.target.signalingState);
+	if (this.queryConnections(function(pc){
+		return pc.signalingState == "closed";
+	}))
+		this.destroy();
+}
 
 Peer.prototype.destroy = function(){
 	gPeers.$root.removeChild(this.$root);
 	gPeers.$lroot.removeChild(this.$lroot);
 
-	this.withConnections(function(pc){
-		pc.close();
-	});
+	this.withConnections(Peer.destroyRTCConnection);
 
 	delete gPeers.peers[this.uid];
 };
