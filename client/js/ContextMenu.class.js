@@ -1,13 +1,15 @@
 function ContextMenu(){
-	// this.createDOM();
-	// this.addCommand("Kick", "kick");
-	// this.addCommand("Ban", "ban");
+	this.createDOM();
+	this.addCommand("Kick", "kick");
+	this.addCommand("Ban", "ban");
 }
 
 ContextMenu.prototype.createDOM = function(){
 	this.$root = document.createElement("div");
 	this.$root.className = 'ctx';
 	this.$root.dataset.visible = false;
+	this.$root.style.left = 0;
+	this.$root.style.top = 0;
 
 	this.$root.addEventListener('click', this.onContextClick.bind(this));
 

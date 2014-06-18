@@ -14,6 +14,8 @@ function Selection(){
 Selection.prototype.createDOM = function(){
 	this.$root = document.createElement("div");
 	this.$root.className = "selection";
+	this.$root.style.left = 0;
+	this.$root.style.top = 0;
 	this.$root.dataset.visible = false;
 
 	document.body.appendChild(this.$root);

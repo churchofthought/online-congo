@@ -5,9 +5,11 @@ var rtcConfig = {
 };
 
 var rtcConstraints = {
-	optional: [{
-		RtpDataChannels: true
-	},{
+	optional: [
+	// {
+	// 	RtpDataChannels: true
+	// },
+	{
 		DtlsSrtpKeyAgreement: true
 	}],
 	mandatory: {
@@ -38,9 +40,11 @@ function Peer(uid){
 	this.onRemoveStream = this.onRemoveStream.bind(this);
 	this.onIceConnectionStateChange = this.onIceConnectionStateChange.bind(this);
 	this.onSignalingStateChange = this.onSignalingStateChange.bind(this);
+	this.onDataChannel = this.onDataChannel.bind(this);
 	this.onDataChannelMessage = this.onDataChannelMessage.bind(this);
 	this.onDataChannelOpen = this.onDataChannelOpen.bind(this);
 	this.onDataChannelError = this.onDataChannelError.bind(this);
+	this.onDataChannelClose = this.onDataChannelClose.bind(this);
 
 	if (this.uid == gUser.uid){
 		this.send = this.selfSend;
@@ -165,7 +169,7 @@ Peer.prototype.createOfferedPeerConnection = function(){
 	this.offeredConnection = this.createPeerConnection();
 	this.offeredConnection.addStream(gLocalMediaStream.stream);
 
-	destroyDataChannel(this.offeredDC);
+	Peer.destroyDataChannel(this.offeredDC);
 
 	this.offeredDC = this.createDataChannel(this.offeredConnection);
 };
@@ -177,7 +181,7 @@ Peer.prototype.createAnsweredPeerConnection = function(){
 	this.answeredConnection.onaddstream = this.onAddStream;
 	this.answeredConnection.onremovestream = this.onRemoveStream;
 
-	destroyDataChannel(this.answeredDC);
+	Peer.destroyDataChannel(this.answeredDC);
 
 	this.answeredDC = this.createDataChannel(this.answeredConnection);
 }
@@ -187,35 +191,60 @@ Peer.prototype.createPeerConnection = function(){
 	pc.onicecandidate = this.onIceCandidate;
 	pc.oniceconnectionstatechange = this.onIceConnectionStateChange;
 	pc.onsignalingstatechange = this.onSignalingStateChange;
+	pc.ondatachannel = this.onDataChannel;
 
 	return pc;
 };
 
+Peer.prototype.onDataChannel = function(e){
+	if (e.target == this.answeredConnection){
+		// Peer.destroyDataChannel(this.answeredDC);
+		this.answeredDC = e.channel;
+	}else{
+		// Peer.destroyDataChannel(this.offeredDC);
+		this.offeredDC = e.channel;
+	}
+};
+
 Peer.prototype.createDataChannel = function(pc){
-	var dc = pc.createDataChannel("");
+	var dc = pc.createDataChannel('', {
+		// ordered: true,
+		// reliable: true,
+		// // negotiated: true
+	});
+
 	dc.onmessage = this.onDataChannelMessage;
 	dc.onopen = this.onDataChannelOpen;
 	dc.onerror = this.onDataChannelError;
+	dc.onclose = this.onDataChannelClose;
 
 	return dc;
 }
 
-Peer.prototype.onDataChannelOpen = function(){
-	
+Peer.prototype.onDataChannelOpen = function(e){
+	// console.log(e);
 };
 
 Peer.prototype.onDataChannelError = function(e){
 	console.log(e);
 };
 
-Peer.prototype.onDataChannelMessage = function(msg){
-
-	msg = JSON.parse(msg);
-
-	this.onProcessMsg(msg[0], msg.slice(1));
+Peer.prototype.onDataChannelClose = function(e){
+	console.log(e);
 };
 
+Peer.prototype.onDataChannelMessage = function(msg){
+	msg = JSON.parse(msg.data);
 
+	this.processMsg(msg[0], msg.slice(1));
+};
+
+Peer.prototype.sendImageForDisplay = function(arrayBuffer){
+	var dc = this.getOpenDataChannel();
+	if (!dc) return;
+
+	dc.send(arrayBuffer);
+};
 
 Peer.prototype.send = function(type){
 	this.sendArr(
@@ -373,7 +402,7 @@ Peer.prototype.withChannels = function(f){
 
 Peer.destroyDataChannel = function(dc){
 	if (!dc) return;
-	
+
 	dc.close();
 };
 

@@ -281,15 +281,17 @@ Chat.prototype.insertPubMsg = function(name, date, msg, $node){
 	return $date;
 }
 function ContextMenu(){
-	// this.createDOM();
-	// this.addCommand("Kick", "kick");
-	// this.addCommand("Ban", "ban");
+	this.createDOM();
+	this.addCommand("Kick", "kick");
+	this.addCommand("Ban", "ban");
 }
 
 ContextMenu.prototype.createDOM = function(){
 	this.$root = document.createElement("div");
 	this.$root.className = 'ctx';
 	this.$root.dataset.visible = false;
+	this.$root.style.left = 0;
+	this.$root.style.top = 0;
 
 	this.$root.addEventListener('click', this.onContextClick.bind(this));
 
@@ -360,6 +362,9 @@ function LocalMediaStream(){
 	this.analyser = gAudioContext.createAnalyser();
 	this.analyserArray = new Uint8Array(this.analyser.frequencyBinCount);
 
+	// todo
+	// tried but didn't work
+	// blank audio track can be gotten from getUserMedia audio: true, fake:true ??
 	this.stream = new webkitMediaStream([
 		this.blankAudioTrack = 
 			gAudioContext.createMediaStreamDestination()
@@ -489,9 +494,11 @@ var rtcConfig = {
 };
 
 var rtcConstraints = {
-	optional: [{
-		RtpDataChannels: true
-	},{
+	optional: [
+	// {
+	// 	RtpDataChannels: true
+	// },
+	{
 		DtlsSrtpKeyAgreement: true
 	}],
 	mandatory: {
@@ -522,9 +529,11 @@ function Peer(uid){
 	this.onRemoveStream = this.onRemoveStream.bind(this);
 	this.onIceConnectionStateChange = this.onIceConnectionStateChange.bind(this);
 	this.onSignalingStateChange = this.onSignalingStateChange.bind(this);
+	this.onDataChannel = this.onDataChannel.bind(this);
 	this.onDataChannelMessage = this.onDataChannelMessage.bind(this);
 	this.onDataChannelOpen = this.onDataChannelOpen.bind(this);
 	this.onDataChannelError = this.onDataChannelError.bind(this);
+	this.onDataChannelClose = this.onDataChannelClose.bind(this);
 
 	if (this.uid == gUser.uid){
 		this.send = this.selfSend;
@@ -649,7 +658,7 @@ Peer.prototype.createOfferedPeerConnection = function(){
 	this.offeredConnection = this.createPeerConnection();
 	this.offeredConnection.addStream(gLocalMediaStream.stream);
 
-	destroyDataChannel(this.offeredDC);
+	Peer.destroyDataChannel(this.offeredDC);
 
 	this.offeredDC = this.createDataChannel(this.offeredConnection);
 };
@@ -661,7 +670,7 @@ Peer.prototype.createAnsweredPeerConnection = function(){
 	this.answeredConnection.onaddstream = this.onAddStream;
 	this.answeredConnection.onremovestream = this.onRemoveStream;
 
-	destroyDataChannel(this.answeredDC);
+	Peer.destroyDataChannel(this.answeredDC);
 
 	this.answeredDC = this.createDataChannel(this.answeredConnection);
 }
@@ -671,35 +680,60 @@ Peer.prototype.createPeerConnection = function(){
 	pc.onicecandidate = this.onIceCandidate;
 	pc.oniceconnectionstatechange = this.onIceConnectionStateChange;
 	pc.onsignalingstatechange = this.onSignalingStateChange;
+	pc.ondatachannel = this.onDataChannel;
 
 	return pc;
 };
 
+Peer.prototype.onDataChannel = function(e){
+	if (e.target == this.answeredConnection){
+		// Peer.destroyDataChannel(this.answeredDC);
+		this.answeredDC = e.channel;
+	}else{
+		// Peer.destroyDataChannel(this.offeredDC);
+		this.offeredDC = e.channel;
+	}
+};
+
 Peer.prototype.createDataChannel = function(pc){
-	var dc = pc.createDataChannel("");
+	var dc = pc.createDataChannel('', {
+		// ordered: true,
+		// reliable: true,
+		// // negotiated: true
+	});
+
 	dc.onmessage = this.onDataChannelMessage;
 	dc.onopen = this.onDataChannelOpen;
 	dc.onerror = this.onDataChannelError;
+	dc.onclose = this.onDataChannelClose;
 
 	return dc;
 }
 
-Peer.prototype.onDataChannelOpen = function(){
-	
+Peer.prototype.onDataChannelOpen = function(e){
+	// console.log(e);
 };
 
 Peer.prototype.onDataChannelError = function(e){
 	console.log(e);
 };
 
-Peer.prototype.onDataChannelMessage = function(msg){
-
-	msg = JSON.parse(msg);
-
-	this.onProcessMsg(msg[0], msg.slice(1));
+Peer.prototype.onDataChannelClose = function(e){
+	console.log(e);
 };
 
+Peer.prototype.onDataChannelMessage = function(msg){
+	msg = JSON.parse(msg.data);
 
+	this.processMsg(msg[0], msg.slice(1));
+};
+
+Peer.prototype.sendImageForDisplay = function(arrayBuffer){
+	var dc = this.getOpenDataChannel();
+	if (!dc) return;
+
+	dc.send(arrayBuffer);
+};
 
 Peer.prototype.send = function(type){
 	this.sendArr(
@@ -857,7 +891,7 @@ Peer.prototype.withChannels = function(f){
 
 Peer.destroyDataChannel = function(dc){
 	if (!dc) return;
-	
+
 	dc.close();
 };
 
@@ -910,24 +944,61 @@ Peer.prototype.destroy = function(){
 function Peers(){
 	this.peers = {};
 
+	this.fileReaderOnload = this.fileReaderOnload.bind(this);
+
 	this.createDOM();
+
+	window.addEventListener("unload", this.onWinUnload.bind(this));
 }
 
 Peers.prototype.createDOM = function(){
 	this.$root = document.createElement("div");
 	this.$root.className = 'peers';
 
+	this.$root.addEventListener('dragover', this.onDragOver.bind(this));
+	this.$root.addEventListener('drop', this.onDrop.bind(this));
+
 	this.$lroot = this.$root.appendChild(
 		document.createElement("div")
 	);
+
 	this.$lroot.className = 'peerlist';
-	this.$lroot.style.height = '50vh';
-	this.$lroot.onresize = function(){
-		console.log(1);
-	};
+	this.$lroot.style.height = (localStorage.lrh || 50) + 'vh';
+
 	
 	gSidebar.$root.appendChild(this.$lroot);
 	gApp.$mainTable.appendChild(this.$root);
+};
+
+Peers.prototype.onDragOver = function(e){
+	e.preventDefault();
+	e.stopPropagation();
+	e.dataTransfer.dropEffect = 'copy';
+};
+
+Peers.prototype.onDrop = function(e){
+	e.preventDefault();
+	e.stopPropagation();
+	
+	var file = e.dataTransfer.files[0];
+	if (!file) return;
+	if (!/^image\//.test(file.type)) return;
+
+	var fr = new FileReader();
+	fr.onload = this.fileReaderOnload;
+	fr.readAsArrayBuffer(file);
+};
+
+Peers.prototype.fileReaderOnload = function(e){
+	var result = e.target.result;
+
+	this.forEachPeer(function(p){
+		p.sendImageForDisplay(result);
+	});
+};
+
+Peers.prototype.onWinUnload = function(){
+	localStorage.lrh = 100 * parseInt(window.getComputedStyle(this.$lroot).getPropertyValue("height")) / window.innerHeight;
 };
 
 Peers.prototype.processUserMsg = function(uid, type, msg){
@@ -961,8 +1032,9 @@ Peers.prototype.processServerMsg = function(type, msg){
 };
 
 Peers.prototype.sendPubChatMsg = function(msg){
-	for (var uid in this.peers)
-		this.peers[uid].send("pubchat", Date.now(), msg);
+	this.forEachPeer(function(p){
+		p.send("pubchat", Date.now(), msg);
+	});
 };
 
 Peers.prototype.getPeer = function(uid){
@@ -973,9 +1045,15 @@ Peers.prototype.getPeer = function(uid){
 };
 
 Peers.prototype.onLocalStreamChanged = function(){
-	for (var p in this.peers)
-		this.peers[p].onLocalStreamChanged();
+	this.forEachPeer(function(p){
+		p.onLocalStreamChanged();
+	});
 };
+
+Peers.prototype.forEachPeer = function(f){
+	for (var uid in this.peers)
+		f(this.peers[uid]);
+}
 function Selection(){
 	this.selection = [];
 	this.rect = {
@@ -992,6 +1070,8 @@ function Selection(){
 Selection.prototype.createDOM = function(){
 	this.$root = document.createElement("div");
 	this.$root.className = "selection";
+	this.$root.style.left = 0;
+	this.$root.style.top = 0;
 	this.$root.dataset.visible = false;
 
 	document.body.appendChild(this.$root);

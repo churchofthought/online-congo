@@ -22,6 +22,9 @@ function LocalMediaStream(){
 	this.analyser = gAudioContext.createAnalyser();
 	this.analyserArray = new Uint8Array(this.analyser.frequencyBinCount);
 
+	// todo
+	// tried but didn't work
+	// blank audio track can be gotten from getUserMedia audio: true, fake:true ??
 	this.stream = new webkitMediaStream([
 		this.blankAudioTrack = 
 			gAudioContext.createMediaStreamDestination()
