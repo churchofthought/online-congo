@@ -42,14 +42,14 @@ Peers.prototype.onDrop = function(e){
 
 	var fr = new FileReader();
 	fr.onload = this.fileReaderOnload;
-	fr.readAsArrayBuffer(file);
+	fr.readAsDataURL(file);
 };
 
 Peers.prototype.fileReaderOnload = function(e){
 	var result = e.target.result;
 
 	this.forEachPeer(function(p){
-		p.sendImageForDisplay(result);
+		p.send('dispimg', result);
 	});
 };
 

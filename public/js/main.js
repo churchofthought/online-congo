@@ -524,6 +524,9 @@ function Peer(uid){
 	this.analyserArray = new Uint8Array(this.analyser.frequencyBinCount);
 
 
+	this.onResizerMouseMove = this.onResizerMouseMove.bind(this);
+	this.onResizerMouseUp = this.onResizerMouseUp.bind(this);
+
 	this.onIceCandidate = this.onIceCandidate.bind(this);
 	this.onAddStream = this.onAddStream.bind(this);
 	this.onRemoveStream = this.onRemoveStream.bind(this);
@@ -554,17 +557,17 @@ function Peer(uid){
 };
 
 Peer.prototype.onStreamsResized = function(){
-	var $streams = Array.prototype.slice.call(this.$streams.getElementsByClassName('stream'));
-
-	$streams.forEach(function($stream, i){
+	this.$streamElts.forEach(function($stream, i){
 		var computedStyle = window.getComputedStyle($stream);
 		var width = 100 * parseInt(computedStyle.getPropertyValue("width")) / window.innerWidth;
 		var height = 100 * parseInt(computedStyle.getPropertyValue("height")) / window.innerHeight;
 		
-		var cn = $stream.childNodes[0];
 
-		cn.style.width = $stream.style.width = width + 'vw';
-		cn.style.height = $stream.style.height = height + 'vh';
+		var $cn = $stream.childNodes[0];
+		if ($cn){
+			$cn.style.width = $stream.style.width = width + 'vw';
+			$cn.style.height = $stream.style.height = height + 'vh';
+		}
 	});
 };
 
@@ -608,9 +611,26 @@ Peer.prototype.createDOM = function(){
 	this.$streams = this.$root.appendChild(document.createElement("div"));
 	this.$streams.className = "streams";
 
+	this.$resizer = document.createElement('div');
+	this.$resizer.className = 'resizer';
+
+	this.$resizer.addEventListener('mousedown', this.onResizerMouseDown.bind(this));
+	this.$root.appendChild(this.$resizer);
+
+	this.$streamElts = [];
+
+	for (var i = 0; i < 3; ++i){
+		var $stream = document.createElement('div');
+		$stream.className = 'stream';
+		this.$streamElts.push($stream);
+		this.$streams.appendChild($stream);
+	}
+
 	this.$streams.addEventListener('mouseup', this.onStreamsResized.bind(this));
 
 	this.$audio = this.$root.appendChild(document.createElement("audio"));
+	this.$audio.autoplay = true;
+
 	gPeers.$root.appendChild(this.$root);
 
 
@@ -645,6 +665,23 @@ Peer.prototype.createDOM = function(){
 
 
 	gPeers.$lroot.appendChild(this.$lroot);
+};
+
+Peer.prototype.onResizerMouseDown = function(){
+	window.addEventListener('mousemove', this.onResizerMouseMove);
+	window.addEventListener('mouseup', this.onResizerMouseUp);
+};
+
+Peer.prototype.onResizerMouseMove = function(e){
+	var rect = this.$root.getBoundingClientRect();
+
+	this.$root.style.width = (100 * (e.clientX - rect.left) / window.innerWidth) + 'vw';
+	this.$root.style.height = (100 * (e.clientY - rect.top) / window.innerHeight) + 'vh';
+};
+
+Peer.prototype.onResizerMouseUp = function(){
+	window.removeEventListener('mousemove', this.onResizerMouseMove);
+	window.removeEventListener('mouseup', this.onResizerMouseUp);
 };
 
 Peer.prototype.onNameChanged = function(){
@@ -745,13 +782,6 @@ Peer.prototype.onDataChannelMessage = function(msg){
 	this.processMsg(msg[0], msg.slice(1));
 };
 
-Peer.prototype.sendImageForDisplay = function(arrayBuffer){
-	var dc = this.getOpenDataChannel();
-	if (!dc) return;
-
-	dc.send(arrayBuffer);
-};
-
 Peer.prototype.send = function(type){
 	this.sendArr(
 		type, Array.prototype.slice.call(arguments, 1)
@@ -811,28 +841,38 @@ Peer.prototype.onRemoveStream = function(e){
 
 Peer.prototype.onStreamChanged = function(){
 	var $elt;
-	while ($elt = this.$streams.firstChild)
-		this.$streams.removeChild($elt);
+	this.$streamElts.forEach(function($stream){
+		if ($stream.firstChild)
+			$stream.removeChild($stream.firstChild);
+	});
+
 
 	if (!this.stream){
 		this.$lCamToggle.dataset.vids = this.$root.dataset.vids = 0;
+		this.$audio.removeAttribute('src');
 		return;
 	}
 
 	var vidTracks = this.stream.getVideoTracks();
 	this.$lCamToggle.dataset.vids = this.$root.dataset.vids = vidTracks.length;
 
+	var streamIdx = 0;
+
 	vidTracks.forEach((function(track){
-		var $wrapper = document.createElement("div");
-		$wrapper.className = 'stream';
+		var $wrapper = this.$streamElts[streamIdx++];
 		var $stream = $wrapper.appendChild(document.createElement('video'));
+		$stream.style.width = '10vw';
 		$stream.autoplay = true;
 		$stream.src = URL.createObjectURL(new webkitMediaStream(
 			[track]
 		));
-		this.$streams.appendChild($wrapper);
+		// $stream.controls = "controls";
 	}).bind(this));
 
+
+	if (this.$dispimg){
+		var $image = this.$streamElts[streamIdx++].appendChild(this.$dispimg);
+	}
 
 	this.analyser.disconnect();
 	gAudioContext.createMediaStreamSource(this.stream).connect(this.analyser);
@@ -842,10 +882,9 @@ Peer.prototype.onStreamChanged = function(){
 
 	var audioTrack = this.stream.getAudioTracks()[0];
 	if (audioTrack){
-		var $stream = document.createElement("audio");
-		$stream.autoplay = true;
-		$stream.src = URL.createObjectURL(this.stream);
-		this.$streams.appendChild($stream);
+		this.$audio.src = URL.createObjectURL(this.stream);
+	}else{
+		this.$audio.removeAttribute('src');
 	}
 };
 
@@ -857,6 +896,13 @@ Peer.prototype.setName = function(name){
 Peer.prototype.processMsg = function(type, msg){
 
 	switch(type){
+
+		case ucmd.dispimg:
+			this.$dispimg = document.createElement('img');
+			this.$dispimg.style.width = '10vw';
+			this.$dispimg.src = msg[0];
+			this.onStreamChanged();
+		break;
 
 		case ucmd.pubchathistory:
 			gChat.gotPubHistory(msg);
@@ -1004,14 +1050,14 @@ Peers.prototype.onDrop = function(e){
 
 	var fr = new FileReader();
 	fr.onload = this.fileReaderOnload;
-	fr.readAsArrayBuffer(file);
+	fr.readAsDataURL(file);
 };
 
 Peers.prototype.fileReaderOnload = function(e){
 	var result = e.target.result;
 
 	this.forEachPeer(function(p){
-		p.sendImageForDisplay(result);
+		p.send('dispimg', result);
 	});
 };
 
@@ -1384,8 +1430,7 @@ User.prototype.setUID = function(uid){
 	exports.cmdt = constants("server","all");
 	exports.fscmd = constants("setname", "disconnected", "init");
 	exports.tscmd = constants("setname", "kick");
-	exports.ucmd = constants("icecandidate", "offer", "answer", "pubchat", "pubchathistory");
-
+	exports.ucmd = constants("dispimg", "icecandidate", "offer", "answer", "pubchat", "pubchathistory");
 })();
 window.onload = function(){
 	window.onload = null;

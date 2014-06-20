@@ -20,19 +20,43 @@
 	.streams
 		flex-grow: 1
 
+		display: flex
+		flex-direction: row
+
+		align-items: stretch
+		align-content: stretch
+
+		width: auto
+		height: auto
+
 	.stream
+		flex-grow: 1
+		flex-shrink: 0
+
 		display: inline-block
-		resize: both
 		overflow: hidden
-		padding-bottom: 1em
 		position: relative
-		width: 100%
 
 		video
-			width: 0
-			min-width: 100%
 			object-fit: contain
-		
+			pointer-events: none
+
+		img
+			object-fit: contain
+			pointer-events: none
+
+		.resizer
+			position: absolute
+			bottom: 0
+			right: 0
+			background: no-repeat center center url('images/resizer.svg');
+			background-size: cover
+			width: .5em
+			height: .5em
+	
+	.stream:empty
+		display: none
+
 	/*&[data-vids='2']
 		min-width: 20vw
 
@@ -44,6 +68,7 @@
 
 	.name
 		flex-grow: 0
+		flex-shrink: 0
 		margin-top: .2em
 		position: relative
 		z-index: 1
