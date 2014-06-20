@@ -251,13 +251,11 @@ Peer.prototype.onDataChannelClose = function(e){
 };
 
 Peer.prototype.onDataChannelMessage = function(msg){
-	try
-	{
-		msg = JSON.parse(msg.data);
-	}catch(e){
-		console.log(e);
-		console.log(msg);
-	}
+	// todo
+	// figure out why empty message is being sent
+	if (!msg.data) return;
+
+	msg = JSON.parse(msg.data);
 
 	this.processMsg(msg[0], msg.slice(1));
 };
