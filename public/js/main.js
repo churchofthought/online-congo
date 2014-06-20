@@ -740,7 +740,13 @@ Peer.prototype.onDataChannelClose = function(e){
 };
 
 Peer.prototype.onDataChannelMessage = function(msg){
-	msg = JSON.parse(msg.data);
+	try
+	{
+		msg = JSON.parse(msg.data);
+	}catch(e){
+		console.log(e);
+		console.log(msg);
+	}
 
 	this.processMsg(msg[0], msg.slice(1));
 };
