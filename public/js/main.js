@@ -524,8 +524,8 @@ function Peer(uid){
 	this.analyserArray = new Uint8Array(this.analyser.frequencyBinCount);
 
 
-	this.onResizerMouseMove = this.onResizerMouseMove.bind(this);
-	this.onResizerMouseUp = this.onResizerMouseUp.bind(this);
+	// this.onResizerMouseMove = this.onResizerMouseMove.bind(this);
+	// this.onResizerMouseUp = this.onResizerMouseUp.bind(this);
 
 	this.onIceCandidate = this.onIceCandidate.bind(this);
 	this.onAddStream = this.onAddStream.bind(this);
@@ -562,12 +562,8 @@ Peer.prototype.onStreamsResized = function(){
 		var width = 100 * parseInt(computedStyle.getPropertyValue("width")) / window.innerWidth;
 		var height = 100 * parseInt(computedStyle.getPropertyValue("height")) / window.innerHeight;
 		
-
-		var $cn = $stream.childNodes[0];
-		if ($cn){
-			$cn.style.width = $stream.style.width = width + 'vw';
-			$cn.style.height = $stream.style.height = height + 'vh';
-		}
+		$stream.style.width = width + 'vw';
+		$stream.style.height = height + 'vh';
 	});
 };
 
@@ -611,17 +607,19 @@ Peer.prototype.createDOM = function(){
 	this.$streams = this.$root.appendChild(document.createElement("div"));
 	this.$streams.className = "streams";
 
-	this.$resizer = document.createElement('div');
-	this.$resizer.className = 'resizer';
+	// this.$resizer = document.createElement('div');
+	// this.$resizer.className = 'resizer';
 
-	this.$resizer.addEventListener('mousedown', this.onResizerMouseDown.bind(this));
-	this.$root.appendChild(this.$resizer);
+	// this.$resizer.addEventListener('mousedown', this.onResizerMouseDown.bind(this));
+	// this.$root.appendChild(this.$resizer);
 
 	this.$streamElts = [];
 
 	for (var i = 0; i < 3; ++i){
 		var $stream = document.createElement('div');
 		$stream.className = 'stream';
+		$stream.style.width = '10vw';
+		$stream.style.height = '10vw';
 		this.$streamElts.push($stream);
 		this.$streams.appendChild($stream);
 	}
@@ -667,22 +665,22 @@ Peer.prototype.createDOM = function(){
 	gPeers.$lroot.appendChild(this.$lroot);
 };
 
-Peer.prototype.onResizerMouseDown = function(){
-	window.addEventListener('mousemove', this.onResizerMouseMove);
-	window.addEventListener('mouseup', this.onResizerMouseUp);
-};
+// Peer.prototype.onResizerMouseDown = function(){
+// 	window.addEventListener('mousemove', this.onResizerMouseMove);
+// 	window.addEventListener('mouseup', this.onResizerMouseUp);
+// };
 
-Peer.prototype.onResizerMouseMove = function(e){
-	var rect = this.$root.getBoundingClientRect();
+// Peer.prototype.onResizerMouseMove = function(e){
+// 	var rect = this.$root.getBoundingClientRect();
 
-	this.$root.style.width = (100 * (e.clientX - rect.left) / window.innerWidth) + 'vw';
-	this.$root.style.height = (100 * (e.clientY - rect.top) / window.innerHeight) + 'vh';
-};
+// 	this.$root.style.width = (100 * (e.clientX - rect.left) / window.innerWidth) + 'vw';
+// 	this.$root.style.height = (100 * (e.clientY - rect.top) / window.innerHeight) + 'vh';
+// };
 
-Peer.prototype.onResizerMouseUp = function(){
-	window.removeEventListener('mousemove', this.onResizerMouseMove);
-	window.removeEventListener('mouseup', this.onResizerMouseUp);
-};
+// Peer.prototype.onResizerMouseUp = function(){
+// 	window.removeEventListener('mousemove', this.onResizerMouseMove);
+// 	window.removeEventListener('mouseup', this.onResizerMouseUp);
+// };
 
 Peer.prototype.onNameChanged = function(){
 	this.$name.textContent = this.name;
@@ -861,7 +859,6 @@ Peer.prototype.onStreamChanged = function(){
 	vidTracks.forEach((function(track){
 		var $wrapper = this.$streamElts[streamIdx++];
 		var $stream = $wrapper.appendChild(document.createElement('video'));
-		$stream.style.width = '10vw';
 		$stream.autoplay = true;
 		$stream.src = URL.createObjectURL(new webkitMediaStream(
 			[track]
@@ -899,7 +896,6 @@ Peer.prototype.processMsg = function(type, msg){
 
 		case ucmd.dispimg:
 			this.$dispimg = document.createElement('img');
-			this.$dispimg.style.width = '10vw';
 			this.$dispimg.src = msg[0];
 			this.onStreamChanged();
 		break;

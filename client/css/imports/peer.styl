@@ -20,32 +20,26 @@
 	.streams
 		flex-grow: 1
 
-		display: flex
-		flex-direction: row
-
-		align-items: stretch
-		align-content: stretch
-
-		width: auto
-		height: auto
-
 	.stream
-		flex-grow: 1
-		flex-shrink: 0
 
 		display: inline-block
 		overflow: hidden
 		position: relative
+		resize: both
 
 		video
-			object-fit: contain
+			object-fit: cover
 			pointer-events: none
+			width: 100%
+			height: 100%
 
 		img
-			object-fit: contain
+			object-fit: cover
 			pointer-events: none
+			width: 100%
+			height: 100%
 
-		.resizer
+		/*.resizer
 			position: absolute
 			bottom: 0
 			right: 0
@@ -53,6 +47,7 @@
 			background-size: cover
 			width: .5em
 			height: .5em
+			z-index: 1*/
 	
 	.stream:empty
 		display: none
