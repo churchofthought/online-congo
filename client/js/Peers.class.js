@@ -4,8 +4,6 @@ function Peers(){
 	this.fileReaderOnload = this.fileReaderOnload.bind(this);
 
 	this.createDOM();
-
-	window.addEventListener("unload", this.onWinUnload.bind(this));
 }
 
 Peers.prototype.createDOM = function(){
@@ -21,6 +19,7 @@ Peers.prototype.createDOM = function(){
 
 	this.$lroot.className = 'peerlist';
 	this.$lroot.style.height = (localStorage.lrh || 50) + 'vh';
+	this.$lroot.addEventListener("mouseup", this.updateLRH.bind(this));
 
 	
 	gSidebar.$root.appendChild(this.$lroot);
@@ -54,8 +53,10 @@ Peers.prototype.fileReaderOnload = function(e){
 	});
 };
 
-Peers.prototype.onWinUnload = function(){
-	localStorage.lrh = 100 * parseInt(window.getComputedStyle(this.$lroot).getPropertyValue("height")) / window.innerHeight;
+Peers.prototype.updateLRH = function(){
+	var lrh = 100 * parseInt(window.getComputedStyle(this.$lroot).getPropertyValue("height")) / window.innerHeight;
+	localStorage.lrh = lrh;
+	this.$lroot.style.height = lrh + 'vh';
 };
 
 Peers.prototype.processUserMsg = function(uid, type, msg){

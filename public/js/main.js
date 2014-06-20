@@ -36,11 +36,11 @@ function AppController(){
 
 	gChat = this.chat = new Chat();
 
-	gSelection = this.selection = new Selection();
+	// gSelection = this.selection = new Selection();
 
 	
 
-	gContextMenu = this.contextMenu = new ContextMenu();
+	// gContextMenu = this.contextMenu = new ContextMenu();
 }
 
 AppController.prototype.createMainTable = function(){
@@ -553,6 +553,21 @@ function Peer(uid){
 	
 };
 
+Peer.prototype.onStreamsResized = function(){
+	var $streams = Array.prototype.slice.call(this.$streams.getElementsByClassName('stream'));
+
+	$streams.forEach(function($stream, i){
+		var computedStyle = window.getComputedStyle($stream);
+		var width = 100 * parseInt(computedStyle.getPropertyValue("width")) / window.innerWidth;
+		var height = 100 * parseInt(computedStyle.getPropertyValue("height")) / window.innerHeight;
+		
+		var cn = $stream.childNodes[0];
+
+		cn.style.width = $stream.style.width = width + 'vw';
+		cn.style.height = $stream.style.height = height + 'vh';
+	});
+};
+
 Peer.prototype.selfSend = function(type){
 	type = ucmd[type];
 
@@ -592,6 +607,8 @@ Peer.prototype.createDOM = function(){
 
 	this.$streams = this.$root.appendChild(document.createElement("div"));
 	this.$streams.className = "streams";
+
+	this.$streams.addEventListener('mouseup', this.onStreamsResized.bind(this));
 
 	this.$audio = this.$root.appendChild(document.createElement("audio"));
 	gPeers.$root.appendChild(this.$root);
@@ -699,7 +716,7 @@ Peer.prototype.createDataChannel = function(pc){
 	var dc = pc.createDataChannel('', {
 		// ordered: true,
 		// reliable: true,
-		// // negotiated: true
+		// negotiated: true
 	});
 
 	dc.onmessage = this.onDataChannelMessage;
@@ -719,7 +736,7 @@ Peer.prototype.onDataChannelError = function(e){
 };
 
 Peer.prototype.onDataChannelClose = function(e){
-	console.log(e);
+	// console.log(e);
 };
 
 Peer.prototype.onDataChannelMessage = function(msg){
@@ -806,12 +823,14 @@ Peer.prototype.onStreamChanged = function(){
 	this.$lCamToggle.dataset.vids = this.$root.dataset.vids = vidTracks.length;
 
 	vidTracks.forEach((function(track){
-		var $stream = document.createElement('video');
+		var $wrapper = document.createElement("div");
+		$wrapper.className = 'stream';
+		var $stream = $wrapper.appendChild(document.createElement('video'));
 		$stream.autoplay = true;
 		$stream.src = URL.createObjectURL(new webkitMediaStream(
 			[track]
 		));
-		this.$streams.appendChild($stream);
+		this.$streams.appendChild($wrapper);
 	}).bind(this));
 
 
@@ -823,7 +842,7 @@ Peer.prototype.onStreamChanged = function(){
 
 	var audioTrack = this.stream.getAudioTracks()[0];
 	if (audioTrack){
-		var $stream = new Audio();
+		var $stream = document.createElement("audio");
 		$stream.autoplay = true;
 		$stream.src = URL.createObjectURL(this.stream);
 		this.$streams.appendChild($stream);
@@ -917,7 +936,7 @@ Peer.prototype.setSelected = function(selected){
 };
 
 Peer.prototype.onIceConnectionStateChange = function(e){
-	console.log("ice",e.target.iceConnectionState);
+	// console.log("ice",e.target.iceConnectionState);
 	if (this.queryConnections(function(pc){
 		return pc.iceConnectionState == "closed" || pc.iceConnectionState == "disconnected";
 	}))
@@ -925,7 +944,7 @@ Peer.prototype.onIceConnectionStateChange = function(e){
 };
 
 Peer.prototype.onSignalingStateChange = function(e){
-	console.log("sig", e.target.signalingState);
+	// console.log("sig", e.target.signalingState);
 	if (this.queryConnections(function(pc){
 		return pc.signalingState == "closed" || pc.signalingState == "closing";
 	}))
@@ -947,8 +966,6 @@ function Peers(){
 	this.fileReaderOnload = this.fileReaderOnload.bind(this);
 
 	this.createDOM();
-
-	window.addEventListener("unload", this.onWinUnload.bind(this));
 }
 
 Peers.prototype.createDOM = function(){
@@ -964,6 +981,7 @@ Peers.prototype.createDOM = function(){
 
 	this.$lroot.className = 'peerlist';
 	this.$lroot.style.height = (localStorage.lrh || 50) + 'vh';
+	this.$lroot.addEventListener("mouseup", this.updateLRH.bind(this));
 
 	
 	gSidebar.$root.appendChild(this.$lroot);
@@ -997,8 +1015,10 @@ Peers.prototype.fileReaderOnload = function(e){
 	});
 };
 
-Peers.prototype.onWinUnload = function(){
-	localStorage.lrh = 100 * parseInt(window.getComputedStyle(this.$lroot).getPropertyValue("height")) / window.innerHeight;
+Peers.prototype.updateLRH = function(){
+	var lrh = 100 * parseInt(window.getComputedStyle(this.$lroot).getPropertyValue("height")) / window.innerHeight;
+	localStorage.lrh = lrh;
+	this.$lroot.style.height = lrh + 'vh';
 };
 
 Peers.prototype.processUserMsg = function(uid, type, msg){

@@ -1,4 +1,13 @@
 .peers .peer
+
+	display: flex
+	flex-direction: column
+	flex-wrap: nowrap
+
+	align-items: stretch
+	align-content: stretch
+
+
 	position: relative
 	text-align: center
 	margin-left: 1vw
@@ -8,35 +17,44 @@
 
 	box-shadow: 0 0 0.15em rgba(0,0,0,0.5)
 
-	video
+	.streams
+		flex-grow: 1
+
+	.stream
 		display: inline-block
+		resize: both
+		overflow: hidden
+		padding-bottom: 1em
+		position: relative
 		width: 100%
-		
-	&[data-vids='2']
-		min-width: 20vw
 
 		video
+			width: 0
+			min-width: 100%
+			object-fit: contain
+		
+	/*&[data-vids='2']
+		min-width: 20vw
+
+		.stream
 			width: 48%
 
-		video:first-child
-			margin-right: 4%	
+		.stream:first-child
+			margin-right: 4%	*/
 
 	.name
+		flex-grow: 0
 		margin-top: .2em
 		position: relative
 		z-index: 1
 
 	.ava
-		position: absolute
-		top: 1.8em
-		bottom: 0
-		left: 0
-		right: 0
+		flex-grow: 1
 		background: no-repeat center center url('images/avatar.svg')
 		background-size: 100% 100%
 
-	&:not([data-vids='0']) .ava
-		visibility: hidden
+	&:not([data-vids='0']) .ava, &[data-vids='0'] .streams
+		display: none
 
 	audio
 		display: none

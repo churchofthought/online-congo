@@ -36,11 +36,11 @@ function AppController(){
 
 	gChat = this.chat = new Chat();
 
-	gSelection = this.selection = new Selection();
+	// gSelection = this.selection = new Selection();
 
 	
 
-	gContextMenu = this.contextMenu = new ContextMenu();
+	// gContextMenu = this.contextMenu = new ContextMenu();
 }
 
 AppController.prototype.createMainTable = function(){
