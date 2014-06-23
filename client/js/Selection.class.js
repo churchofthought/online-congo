@@ -26,6 +26,8 @@ Selection.prototype.createDOM = function(){
 
 
 Selection.prototype.onMouseDown = function(e){
+	if (e.button) return;
+	
 	this.$root.style.width = 
 	this.$root.style.height = "0px";
 

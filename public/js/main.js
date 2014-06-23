@@ -9,6 +9,7 @@ var gSidebar;
 var gUser;
 var gAudioContext = new webkitAudioContext();
 var gChat;
+var gSelf;
 
 // todo
 // 
@@ -36,11 +37,11 @@ function AppController(){
 
 	gChat = this.chat = new Chat();
 
-	// gSelection = this.selection = new Selection();
+	gSelection = this.selection = new Selection();
 
 	
 
-	// gContextMenu = this.contextMenu = new ContextMenu();
+	gContextMenu = this.contextMenu = new ContextMenu();
 }
 
 AppController.prototype.createMainTable = function(){
@@ -78,7 +79,13 @@ AppController.prototype.onSockMsg = function(e){
 };
 
 AppController.prototype.kick = function(sel){
-	this.sock.serverSendArr('kick', sel.map(function(p){
+	this.sock.sendServerArr('kick', sel.map(function(p){
+		return p.uid;
+	}));
+};
+
+AppController.prototype.ban = function(sel){
+	this.sock.sendServerArr('ban', sel.map(function(p){
 		return p.uid;
 	}));
 };
@@ -524,8 +531,9 @@ function Peer(uid){
 	this.analyserArray = new Uint8Array(this.analyser.frequencyBinCount);
 
 
-	// this.onResizerMouseMove = this.onResizerMouseMove.bind(this);
-	// this.onResizerMouseUp = this.onResizerMouseUp.bind(this);
+	this.onResizerMouseMove = this.onResizerMouseMove.bind(this);
+	this.onResizerMouseUp = this.onResizerMouseUp.bind(this);
+
 
 	this.onIceCandidate = this.onIceCandidate.bind(this);
 	this.onAddStream = this.onAddStream.bind(this);
@@ -539,6 +547,7 @@ function Peer(uid){
 	this.onDataChannelClose = this.onDataChannelClose.bind(this);
 
 	if (this.uid == gUser.uid){
+		gSelf = this;
 		this.send = this.selfSend;
 		this.onAddStream({
 			stream: gLocalMediaStream.stream
@@ -556,16 +565,16 @@ function Peer(uid){
 	
 };
 
-Peer.prototype.onStreamsResized = function(){
-	this.$streamElts.forEach(function($stream, i){
-		var computedStyle = window.getComputedStyle($stream);
-		var width = 100 * parseInt(computedStyle.getPropertyValue("width")) / window.innerWidth;
-		var height = 100 * parseInt(computedStyle.getPropertyValue("height")) / window.innerHeight;
+// Peer.prototype.onStreamsResized = function(){
+// 	this.$streamElts.forEach(function($stream, i){
+// 		var computedStyle = window.getComputedStyle($stream);
+// 		var width = 100 * parseInt(computedStyle.getPropertyValue("width")) / window.innerWidth;
+// 		var height = 100 * parseInt(computedStyle.getPropertyValue("height")) / window.innerHeight;
 		
-		$stream.style.width = width + 'vw';
-		$stream.style.height = height + 'vh';
-	});
-};
+// 		$stream.style.width = width + 'vw';
+// 		$stream.style.height = height + 'vh';
+// 	});
+// };
 
 Peer.prototype.selfSend = function(type){
 	type = ucmd[type];
@@ -607,11 +616,7 @@ Peer.prototype.createDOM = function(){
 	this.$streams = this.$root.appendChild(document.createElement("div"));
 	this.$streams.className = "streams";
 
-	// this.$resizer = document.createElement('div');
-	// this.$resizer.className = 'resizer';
-
-	// this.$resizer.addEventListener('mousedown', this.onResizerMouseDown.bind(this));
-	// this.$root.appendChild(this.$resizer);
+	this.$streams.addEventListener('mousedown', this.onStreamsMouseDown.bind(this));
 
 	this.$streamElts = [];
 
@@ -624,7 +629,7 @@ Peer.prototype.createDOM = function(){
 		this.$streams.appendChild($stream);
 	}
 
-	this.$streams.addEventListener('mouseup', this.onStreamsResized.bind(this));
+	// this.$streams.addEventListener('mouseup', this.onStreamsResized.bind(this));
 
 	this.$audio = this.$root.appendChild(document.createElement("audio"));
 	this.$audio.autoplay = true;
@@ -665,22 +670,29 @@ Peer.prototype.createDOM = function(){
 	gPeers.$lroot.appendChild(this.$lroot);
 };
 
-// Peer.prototype.onResizerMouseDown = function(){
-// 	window.addEventListener('mousemove', this.onResizerMouseMove);
-// 	window.addEventListener('mouseup', this.onResizerMouseUp);
-// };
+Peer.prototype.onStreamsMouseDown = function(e){
+	var $target = e.target;
+	if ($target.className != 'stream') return;
+	
+	var rect = $target.getBoundingClientRect();
 
-// Peer.prototype.onResizerMouseMove = function(e){
-// 	var rect = this.$root.getBoundingClientRect();
+	// if (e.clientX - rect.right > 16 || e.clientY - rect.bottom > 16) return;
 
-// 	this.$root.style.width = (100 * (e.clientX - rect.left) / window.innerWidth) + 'vw';
-// 	this.$root.style.height = (100 * (e.clientY - rect.top) / window.innerHeight) + 'vh';
-// };
+	this.resizeTarget = $target;
+	this.resizeRect = rect;
+	window.addEventListener('mousemove', this.onResizerMouseMove);
+	window.addEventListener('mouseup', this.onResizerMouseUp);
+}
 
-// Peer.prototype.onResizerMouseUp = function(){
-// 	window.removeEventListener('mousemove', this.onResizerMouseMove);
-// 	window.removeEventListener('mouseup', this.onResizerMouseUp);
-// };
+Peer.prototype.onResizerMouseMove = function(e){
+	this.resizeTarget.style.width = (100 * (e.clientX - this.resizeRect.left) / window.innerWidth) + 'vw';
+	this.resizeTarget.style.height = (100 * (e.clientY - this.resizeRect.top) / window.innerHeight) + 'vh';
+};
+
+Peer.prototype.onResizerMouseUp = function(){
+	window.removeEventListener('mousemove', this.onResizerMouseMove);
+	window.removeEventListener('mouseup', this.onResizerMouseUp);
+};
 
 Peer.prototype.onNameChanged = function(){
 	this.$name.textContent = this.name;
@@ -775,7 +787,9 @@ Peer.prototype.onDataChannelClose = function(e){
 };
 
 Peer.prototype.onDataChannelMessage = function(msg){
+	// console.log(msg);
 	msg = JSON.parse(msg.data);
+
 
 	this.processMsg(msg[0], msg.slice(1));
 };
@@ -797,14 +811,20 @@ Peer.prototype.sendArr = function(type, arr){
 				[type].concat(arr)
 			));
 		}catch(e){
-			gSock.send(JSON.stringify(
-				[this.uid, type].concat(arr)
-			));
+			this.sockSendArr(type, arr);
 		}
 	else
-		gSock.send(JSON.stringify(
-			[this.uid, type].concat(arr)
-		));
+		this.sockSendArr(type, arr);
+};
+
+Peer.prototype.sockSend = function(type){
+	this.sockSendX(ucmd[type], Array.prototype.slice.call(arguments, 1));
+}
+
+Peer.prototype.sockSendArr = function(type, arr){
+	gSock.send(JSON.stringify(
+		[this.uid, type].concat(arr)
+	));
 };
 
 Peer.prototype.getOpenDataChannel = function(){
@@ -840,19 +860,14 @@ Peer.prototype.onRemoveStream = function(e){
 Peer.prototype.onStreamChanged = function(){
 	var $elt;
 	this.$streamElts.forEach(function($stream){
-		if ($stream.firstChild)
-			$stream.removeChild($stream.firstChild);
+		var $child = $stream.firstChild;
+		if ($child)
+			$stream.removeChild($child);
 	});
 
 
-	if (!this.stream){
-		this.$lCamToggle.dataset.vids = this.$root.dataset.vids = 0;
-		this.$audio.removeAttribute('src');
-		return;
-	}
-
 	var vidTracks = this.stream.getVideoTracks();
-	this.$lCamToggle.dataset.vids = this.$root.dataset.vids = vidTracks.length;
+	this.$lCamToggle.dataset.vids = this.$root.dataset.vids = vidTracks.length + +!!this.$dispimg;
 
 	var streamIdx = 0;
 
@@ -863,12 +878,12 @@ Peer.prototype.onStreamChanged = function(){
 		$stream.src = URL.createObjectURL(new webkitMediaStream(
 			[track]
 		));
-		// $stream.controls = "controls";
+		$stream.controls = "controls";
 	}).bind(this));
 
 
 	if (this.$dispimg){
-		var $image = this.$streamElts[streamIdx++].appendChild(this.$dispimg);
+		this.$streamElts[streamIdx++].appendChild(this.$dispimg);
 	}
 
 	this.analyser.disconnect();
@@ -890,14 +905,18 @@ Peer.prototype.setName = function(name){
 	this.onNameChanged();
 };
 
+Peer.prototype.updateDispImg = function(src){
+	this.$dispimg = document.createElement('img');
+	this.$dispimg.src = src;
+	this.onStreamChanged();
+}
+
 Peer.prototype.processMsg = function(type, msg){
 
 	switch(type){
 
 		case ucmd.dispimg:
-			this.$dispimg = document.createElement('img');
-			this.$dispimg.src = msg[0];
-			this.onStreamChanged();
+			this.updateDispImg(msg[0]);
 		break;
 
 		case ucmd.pubchathistory:
@@ -1007,6 +1026,10 @@ function Peers(){
 
 	this.fileReaderOnload = this.fileReaderOnload.bind(this);
 
+
+	this.onResizerMouseMove = this.onResizerMouseMove.bind(this);
+	this.onResizerMouseUp = this.onResizerMouseUp.bind(this);
+
 	this.createDOM();
 }
 
@@ -1023,11 +1046,34 @@ Peers.prototype.createDOM = function(){
 
 	this.$lroot.className = 'peerlist';
 	this.$lroot.style.height = (localStorage.lrh || 50) + 'vh';
-	this.$lroot.addEventListener("mouseup", this.updateLRH.bind(this));
+	this.$lroot.addEventListener("mousedown", this.onLRootMouseDown.bind(this));
 
 	
 	gSidebar.$root.appendChild(this.$lroot);
 	gApp.$mainTable.appendChild(this.$root);
+};
+
+Peers.prototype.onLRootMouseDown = function(e){
+	if (e.target.className != 'peerlist') return;
+	
+	this.resizeRect = this.$lroot.getBoundingClientRect();
+
+	// if (e.clientX - rect.right > 16 || e.clientY - rect.bottom > 16) return;
+
+	window.addEventListener('mousemove', this.onResizerMouseMove);
+	window.addEventListener('mouseup', this.onResizerMouseUp);
+}
+
+Peers.prototype.onResizerMouseMove = function(e){
+	// this.$lroot.style.width = (100 * (e.clientX - this.resizeRect.left) / window.innerWidth) + 'vw';
+	var lrh = (100 * (e.clientY - this.resizeRect.top) / window.innerHeight);
+	localStorage.lrh = lrh;
+	this.$lroot.style.height = lrh + 'vh';
+};
+
+Peers.prototype.onResizerMouseUp = function(){
+	window.removeEventListener('mousemove', this.onResizerMouseMove);
+	window.removeEventListener('mouseup', this.onResizerMouseUp);
 };
 
 Peers.prototype.onDragOver = function(e){
@@ -1052,15 +1098,13 @@ Peers.prototype.onDrop = function(e){
 Peers.prototype.fileReaderOnload = function(e){
 	var result = e.target.result;
 
-	this.forEachPeer(function(p){
-		p.send('dispimg', result);
-	});
-};
+	// datachannel doesnt support large files
+	gSock.sendAll('dispimg', result);
+	gSelf.updateDispImg(result);
 
-Peers.prototype.updateLRH = function(){
-	var lrh = 100 * parseInt(window.getComputedStyle(this.$lroot).getPropertyValue("height")) / window.innerHeight;
-	localStorage.lrh = lrh;
-	this.$lroot.style.height = lrh + 'vh';
+	// this.forEachPeer(function(p){
+	// 	p.send('dispimg', result);
+	// });
 };
 
 Peers.prototype.processUserMsg = function(uid, type, msg){
@@ -1144,6 +1188,8 @@ Selection.prototype.createDOM = function(){
 
 
 Selection.prototype.onMouseDown = function(e){
+	if (e.button) return;
+	
 	this.$root.style.width = 
 	this.$root.style.height = "0px";
 
@@ -1425,7 +1471,7 @@ User.prototype.setUID = function(uid){
 
 	exports.cmdt = constants("server","all");
 	exports.fscmd = constants("setname", "disconnected", "init");
-	exports.tscmd = constants("setname", "kick");
+	exports.tscmd = constants("setname", "kick", "ban");
 	exports.ucmd = constants("dispimg", "icecandidate", "offer", "answer", "pubchat", "pubchathistory");
 })();
 window.onload = function(){

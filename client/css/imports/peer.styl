@@ -25,29 +25,21 @@
 		display: inline-block
 		overflow: hidden
 		position: relative
-		resize: both
 
 		video
 			object-fit: cover
-			pointer-events: none
+			/*pointer-events: none*/
 			width: 100%
 			height: 100%
 
 		img
 			object-fit: cover
-			pointer-events: none
+			/*pointer-events: none*/
 			width: 100%
 			height: 100%
 
-		/*.resizer
-			position: absolute
-			bottom: 0
-			right: 0
-			background: no-repeat center center url('images/resizer.svg');
-			background-size: cover
-			width: .5em
-			height: .5em
-			z-index: 1*/
+		&:before
+			@extend $resizer
 	
 	.stream:empty
 		display: none

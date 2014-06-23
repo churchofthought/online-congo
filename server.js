@@ -7,6 +7,7 @@ var crypto = require('crypto');
 
 var staticServer = new (require('node-static').Server)('./public');
 
+var banned = {};
 var connections = {};
 var names = {};
 
@@ -51,6 +52,11 @@ var httpServer = require('https').createServer({
 	key: fs.readFileSync('key.pem'),
 	cert: fs.readFileSync('cert.pem')
 }, function(req, res){
+	if (banned[req.connection.remoteAddress]){
+		res.end("You're banned!");
+		return;
+	}
+
 	if (isWebSocket(req)){
 		req.resume();
 	}else{
@@ -71,7 +77,8 @@ function isWebSocket(request) {
 
 new WebSocketServer({
 	autoAcceptConnections: true,
-	httpServer: httpServer
+	httpServer: httpServer,
+	maxReceivedFrameSize: 64*1024*1024 // 64 mb
 }).on('connect', function(c){
 
 	c.uid = crypto.createHash('md5').update(crypto.randomBytes(64)).digest('hex');
@@ -80,6 +87,8 @@ new WebSocketServer({
 
 	c.serverSend('init', c.uid, names);
 }).on('close', function(c){
+	// output why dc happened
+	// console.log(c);
 	delete names[c.name];
 	delete connections[c.uid];
 
@@ -123,6 +132,21 @@ function gotMsg(wrapper){
 				var connection = connections[uid];
 				if (connection)
 					connection.close();
+			});
+			break;
+
+			case tscmd.ban:
+			msg.slice(2).forEach(function(uid){
+				var connection = connections[uid];
+				if (!connection) return;
+				
+				banned[connection.remoteAddress] = true;
+				for (var k in connections){
+					var c = connections[k];
+					if (c.remoteAddress == connection.remoteAddress){
+						c.close();
+					}
+				}
 			});
 			break;
 		}

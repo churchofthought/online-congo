@@ -3,6 +3,10 @@ function Peers(){
 
 	this.fileReaderOnload = this.fileReaderOnload.bind(this);
 
+
+	this.onResizerMouseMove = this.onResizerMouseMove.bind(this);
+	this.onResizerMouseUp = this.onResizerMouseUp.bind(this);
+
 	this.createDOM();
 }
 
@@ -19,11 +23,34 @@ Peers.prototype.createDOM = function(){
 
 	this.$lroot.className = 'peerlist';
 	this.$lroot.style.height = (localStorage.lrh || 50) + 'vh';
-	this.$lroot.addEventListener("mouseup", this.updateLRH.bind(this));
+	this.$lroot.addEventListener("mousedown", this.onLRootMouseDown.bind(this));
 
 	
 	gSidebar.$root.appendChild(this.$lroot);
 	gApp.$mainTable.appendChild(this.$root);
+};
+
+Peers.prototype.onLRootMouseDown = function(e){
+	if (e.target.className != 'peerlist') return;
+	
+	this.resizeRect = this.$lroot.getBoundingClientRect();
+
+	// if (e.clientX - rect.right > 16 || e.clientY - rect.bottom > 16) return;
+
+	window.addEventListener('mousemove', this.onResizerMouseMove);
+	window.addEventListener('mouseup', this.onResizerMouseUp);
+}
+
+Peers.prototype.onResizerMouseMove = function(e){
+	// this.$lroot.style.width = (100 * (e.clientX - this.resizeRect.left) / window.innerWidth) + 'vw';
+	var lrh = (100 * (e.clientY - this.resizeRect.top) / window.innerHeight);
+	localStorage.lrh = lrh;
+	this.$lroot.style.height = lrh + 'vh';
+};
+
+Peers.prototype.onResizerMouseUp = function(){
+	window.removeEventListener('mousemove', this.onResizerMouseMove);
+	window.removeEventListener('mouseup', this.onResizerMouseUp);
 };
 
 Peers.prototype.onDragOver = function(e){
@@ -48,15 +75,13 @@ Peers.prototype.onDrop = function(e){
 Peers.prototype.fileReaderOnload = function(e){
 	var result = e.target.result;
 
-	this.forEachPeer(function(p){
-		p.send('dispimg', result);
-	});
-};
+	// datachannel doesnt support large files
+	gSock.sendAll('dispimg', result);
+	gSelf.updateDispImg(result);
 
-Peers.prototype.updateLRH = function(){
-	var lrh = 100 * parseInt(window.getComputedStyle(this.$lroot).getPropertyValue("height")) / window.innerHeight;
-	localStorage.lrh = lrh;
-	this.$lroot.style.height = lrh + 'vh';
+	// this.forEachPeer(function(p){
+	// 	p.send('dispimg', result);
+	// });
 };
 
 Peers.prototype.processUserMsg = function(uid, type, msg){

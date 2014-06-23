@@ -1,12 +1,17 @@
 .sidebar .peerlist
+
+
+
 	overflow: hidden
-	resize: vertical
 	padding-bottom: 1em
 	flex-grow: 0
 	flex-shrink: 0
+	position: relative
+
+	&:before
+		@extend $resizer
 
 	.peer
-		pointer-events: none
 		box-sizing: border-box
 		padding: .3em .75em
 		border-top: .1em solid rgba(0,0,0, 0.1)

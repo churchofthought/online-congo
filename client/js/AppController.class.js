@@ -9,6 +9,7 @@ var gSidebar;
 var gUser;
 var gAudioContext = new webkitAudioContext();
 var gChat;
+var gSelf;
 
 // todo
 // 
@@ -36,11 +37,11 @@ function AppController(){
 
 	gChat = this.chat = new Chat();
 
-	// gSelection = this.selection = new Selection();
+	gSelection = this.selection = new Selection();
 
 	
 
-	// gContextMenu = this.contextMenu = new ContextMenu();
+	gContextMenu = this.contextMenu = new ContextMenu();
 }
 
 AppController.prototype.createMainTable = function(){
@@ -78,7 +79,13 @@ AppController.prototype.onSockMsg = function(e){
 };
 
 AppController.prototype.kick = function(sel){
-	this.sock.serverSendArr('kick', sel.map(function(p){
+	this.sock.sendServerArr('kick', sel.map(function(p){
+		return p.uid;
+	}));
+};
+
+AppController.prototype.ban = function(sel){
+	this.sock.sendServerArr('ban', sel.map(function(p){
 		return p.uid;
 	}));
 };

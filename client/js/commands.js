@@ -12,6 +12,6 @@
 
 	exports.cmdt = constants("server","all");
 	exports.fscmd = constants("setname", "disconnected", "init");
-	exports.tscmd = constants("setname", "kick");
+	exports.tscmd = constants("setname", "kick", "ban");
 	exports.ucmd = constants("dispimg", "icecandidate", "offer", "answer", "pubchat", "pubchathistory");
 })();
