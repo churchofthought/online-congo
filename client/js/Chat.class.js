@@ -186,7 +186,15 @@ Chat.prototype.insertPubMsg = function(name, date, msg, $node){
 	$date.textContent = (new Date(+date)).toLocaleTimeString().replace(/:\d\d /, ' ');
 
 	var $txt = $date.parentNode.insertBefore(document.createElement("div"), $date.nextSibling);
-	$txt.textContent = msg;
+	$txt.innerHTML = msg.replace(/[&<>]/g, function(chr){
+		return ({
+			'&': '&amp;',
+			'<': '&lt;',
+			'>': '&gt;'
+		})[chr];
+	}).replace(/(?:ftp|https?|magnet):\S+/ig, function(url){
+		return '<a href="' + url.replace(/"/g, '&quot;') + '">' + url + '</a>';
+	});
 
 	var $par = $date.parentNode;
 	if ($par.childNodes.length == 4)

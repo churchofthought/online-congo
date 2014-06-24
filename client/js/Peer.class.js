@@ -244,7 +244,7 @@ Peer.prototype.createAnsweredPeerConnection = function(){
 }
 
 Peer.prototype.createPeerConnection = function(){
-	var pc = new webkitRTCPeerConnection(rtcConfig, rtcConstraints);
+	var pc = new window.RTCPeerConnection(rtcConfig, rtcConstraints);
 	pc.onicecandidate = this.onIceCandidate;
 	pc.oniceconnectionstatechange = this.onIceConnectionStateChange;
 	pc.onsignalingstatechange = this.onSignalingStateChange;
@@ -379,7 +379,7 @@ Peer.prototype.onStreamChanged = function(){
 		var $wrapper = this.$streamElts[streamIdx++];
 		var $stream = $wrapper.appendChild(document.createElement('video'));
 		$stream.autoplay = true;
-		$stream.src = URL.createObjectURL(new webkitMediaStream(
+		$stream.src = URL.createObjectURL(new window.MediaStream(
 			[track]
 		));
 		$stream.controls = "controls";

@@ -18,18 +18,25 @@ var mediaConstraints = {
 };
 
 
-function LocalMediaStream(){
+function LMS(){
 	this.analyser = gAudioContext.createAnalyser();
 	this.analyserArray = new Uint8Array(this.analyser.frequencyBinCount);
 
 	// todo
 	// tried but didn't work
 	// blank audio track can be gotten from getUserMedia audio: true, fake:true ??
-	this.stream = new webkitMediaStream([
+	
+	this.stream = new window.MediaStream([
 		this.blankAudioTrack = 
 			gAudioContext.createMediaStreamDestination()
 				.stream.getAudioTracks()[0]
 	]);
+
+
+	// todo firefox
+	// navigator.GetUserMedia({ audio: true, fake: true }, (function(stream){
+	// 	this.stream = stream;
+	// }).bind(this), function(){});
 
 	requestAnimationFrame(
 		this.processAudio = this.processAudio.bind(this)
@@ -44,7 +51,7 @@ function LocalMediaStream(){
 	};
 };
 
-LocalMediaStream.prototype.processAudio = function(e){
+LMS.prototype.processAudio = function(e){
 	this.analyser.getByteFrequencyData(this.analyserArray);
 	var avg = 0;
 	for (var i = this.analyserArray.length; i--;)
@@ -56,7 +63,7 @@ LocalMediaStream.prototype.processAudio = function(e){
 	requestAnimationFrame(this.processAudio);
 };
 
-LocalMediaStream.prototype.createDOM = function(){
+LMS.prototype.createDOM = function(){
 	this.$camVid = document.createElement('video');
 	this.$camVid.autoplay = true;
 	gSettingsBar.$camToggle.appendChild(this.$camVid);
@@ -70,9 +77,9 @@ LocalMediaStream.prototype.createDOM = function(){
 	gSettingsBar.$micToggle.appendChild(this.$micDB);
 };
 
-LocalMediaStream.prototype.renderStreams = function(){
+LMS.prototype.renderStreams = function(){
 	if (this.tracks.cam){
-		this.$camVid.src = URL.createObjectURL(new webkitMediaStream(
+		this.$camVid.src = URL.createObjectURL(new window.MediaStream(
 			[this.tracks.cam]
 		));
 	}else{
@@ -80,7 +87,7 @@ LocalMediaStream.prototype.renderStreams = function(){
 	}
 
 	if (this.tracks.screen){
-		this.$screenVid.src = URL.createObjectURL(new webkitMediaStream(
+		this.$screenVid.src = URL.createObjectURL(new window.MediaStream(
 			[this.tracks.screen]
 		));
 	}else{
@@ -88,7 +95,7 @@ LocalMediaStream.prototype.renderStreams = function(){
 	}
 }
 
-LocalMediaStream.prototype.setTrackEnabled = function(type, enabled){
+LMS.prototype.setTrackEnabled = function(type, enabled){
 	if (enabled){
 		this.getUserMedia(type);
 	}else{
@@ -106,9 +113,9 @@ LocalMediaStream.prototype.setTrackEnabled = function(type, enabled){
 	}
 }
 
-LocalMediaStream.prototype.getUserMedia = function(type){
+LMS.prototype.getUserMedia = function(type){
 
-	navigator.webkitGetUserMedia(mediaConstraints[type], (function(stream){
+	navigator.GetUserMedia(mediaConstraints[type], (function(stream){
 		if (!gSettingsBar.toggles[type]) return;
 
 		var audioTrack = stream.getAudioTracks()[0];
@@ -143,7 +150,7 @@ LocalMediaStream.prototype.getUserMedia = function(type){
 	});
 }
 
-LocalMediaStream.prototype.onLocalStreamChanged = function(first_argument) {
+LMS.prototype.onLocalStreamChanged = function(first_argument) {
 	this.renderStreams();
 	gPeers.onLocalStreamChanged();
 };

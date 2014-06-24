@@ -7,7 +7,7 @@ var gContextMenu;
 var gSettingsBar;
 var gSidebar;
 var gUser;
-var gAudioContext = new webkitAudioContext();
+var gAudioContext = new window.AudioContext();
 var gChat;
 var gSelf;
 
@@ -31,7 +31,7 @@ function AppController(){
 
 	gSidebar = this.sideBar = new Sidebar();
 
-	gLocalMediaStream = this.localMediaStream = new LocalMediaStream();
+	gLocalMediaStream = this.localMediaStream = new LMS();
 
 	gPeers = this.peers = new Peers();
 
@@ -277,7 +277,15 @@ Chat.prototype.insertPubMsg = function(name, date, msg, $node){
 	$date.textContent = (new Date(+date)).toLocaleTimeString().replace(/:\d\d /, ' ');
 
 	var $txt = $date.parentNode.insertBefore(document.createElement("div"), $date.nextSibling);
-	$txt.textContent = msg;
+	$txt.innerHTML = msg.replace(/[&<>]/g, function(chr){
+		return ({
+			'&': '&amp;',
+			'<': '&lt;',
+			'>': '&gt;'
+		})[chr];
+	}).replace(/(?:ftp|https?|magnet):\S+/ig, function(url){
+		return '<a href="' + url.replace(/"/g, '&quot;') + '">' + url + '</a>';
+	});
 
 	var $par = $date.parentNode;
 	if ($par.childNodes.length == 4)
@@ -365,18 +373,25 @@ var mediaConstraints = {
 };
 
 
-function LocalMediaStream(){
+function LMS(){
 	this.analyser = gAudioContext.createAnalyser();
 	this.analyserArray = new Uint8Array(this.analyser.frequencyBinCount);
 
 	// todo
 	// tried but didn't work
 	// blank audio track can be gotten from getUserMedia audio: true, fake:true ??
-	this.stream = new webkitMediaStream([
+	
+	this.stream = new window.MediaStream([
 		this.blankAudioTrack = 
 			gAudioContext.createMediaStreamDestination()
 				.stream.getAudioTracks()[0]
 	]);
+
+
+	// todo firefox
+	// navigator.GetUserMedia({ audio: true, fake: true }, (function(stream){
+	// 	this.stream = stream;
+	// }).bind(this), function(){});
 
 	requestAnimationFrame(
 		this.processAudio = this.processAudio.bind(this)
@@ -391,7 +406,7 @@ function LocalMediaStream(){
 	};
 };
 
-LocalMediaStream.prototype.processAudio = function(e){
+LMS.prototype.processAudio = function(e){
 	this.analyser.getByteFrequencyData(this.analyserArray);
 	var avg = 0;
 	for (var i = this.analyserArray.length; i--;)
@@ -403,7 +418,7 @@ LocalMediaStream.prototype.processAudio = function(e){
 	requestAnimationFrame(this.processAudio);
 };
 
-LocalMediaStream.prototype.createDOM = function(){
+LMS.prototype.createDOM = function(){
 	this.$camVid = document.createElement('video');
 	this.$camVid.autoplay = true;
 	gSettingsBar.$camToggle.appendChild(this.$camVid);
@@ -417,9 +432,9 @@ LocalMediaStream.prototype.createDOM = function(){
 	gSettingsBar.$micToggle.appendChild(this.$micDB);
 };
 
-LocalMediaStream.prototype.renderStreams = function(){
+LMS.prototype.renderStreams = function(){
 	if (this.tracks.cam){
-		this.$camVid.src = URL.createObjectURL(new webkitMediaStream(
+		this.$camVid.src = URL.createObjectURL(new window.MediaStream(
 			[this.tracks.cam]
 		));
 	}else{
@@ -427,7 +442,7 @@ LocalMediaStream.prototype.renderStreams = function(){
 	}
 
 	if (this.tracks.screen){
-		this.$screenVid.src = URL.createObjectURL(new webkitMediaStream(
+		this.$screenVid.src = URL.createObjectURL(new window.MediaStream(
 			[this.tracks.screen]
 		));
 	}else{
@@ -435,7 +450,7 @@ LocalMediaStream.prototype.renderStreams = function(){
 	}
 }
 
-LocalMediaStream.prototype.setTrackEnabled = function(type, enabled){
+LMS.prototype.setTrackEnabled = function(type, enabled){
 	if (enabled){
 		this.getUserMedia(type);
 	}else{
@@ -453,9 +468,9 @@ LocalMediaStream.prototype.setTrackEnabled = function(type, enabled){
 	}
 }
 
-LocalMediaStream.prototype.getUserMedia = function(type){
+LMS.prototype.getUserMedia = function(type){
 
-	navigator.webkitGetUserMedia(mediaConstraints[type], (function(stream){
+	navigator.GetUserMedia(mediaConstraints[type], (function(stream){
 		if (!gSettingsBar.toggles[type]) return;
 
 		var audioTrack = stream.getAudioTracks()[0];
@@ -490,7 +505,7 @@ LocalMediaStream.prototype.getUserMedia = function(type){
 	});
 }
 
-LocalMediaStream.prototype.onLocalStreamChanged = function(first_argument) {
+LMS.prototype.onLocalStreamChanged = function(first_argument) {
 	this.renderStreams();
 	gPeers.onLocalStreamChanged();
 };
@@ -740,7 +755,7 @@ Peer.prototype.createAnsweredPeerConnection = function(){
 }
 
 Peer.prototype.createPeerConnection = function(){
-	var pc = new webkitRTCPeerConnection(rtcConfig, rtcConstraints);
+	var pc = new window.RTCPeerConnection(rtcConfig, rtcConstraints);
 	pc.onicecandidate = this.onIceCandidate;
 	pc.oniceconnectionstatechange = this.onIceConnectionStateChange;
 	pc.onsignalingstatechange = this.onSignalingStateChange;
@@ -875,7 +890,7 @@ Peer.prototype.onStreamChanged = function(){
 		var $wrapper = this.$streamElts[streamIdx++];
 		var $stream = $wrapper.appendChild(document.createElement('video'));
 		$stream.autoplay = true;
-		$stream.src = URL.createObjectURL(new webkitMediaStream(
+		$stream.src = URL.createObjectURL(new window.MediaStream(
 			[track]
 		));
 		$stream.controls = "controls";
@@ -1457,6 +1472,28 @@ User.prototype.setName = function(name){
 User.prototype.setUID = function(uid){
 	this.uid = uid;
 };
+(function(){
+
+	var prefixes = ["moz", "webkit", "ms", "o"];
+
+	function fixPrefixedMethods(obj, fnames){
+		fnames.forEach(function(fname){
+			if (obj[fname]) return;
+
+			prefixes.some(function(prefix){
+				var prefixedName = prefix + fname;
+				if (obj[prefixedName]){
+					obj[fname] = obj[prefixedName];
+					return true;
+				}
+			});
+		});
+	}
+
+	fixPrefixedMethods(window, ["AudioContext", "MediaStream", "RTCPeerConnection"]);
+	fixPrefixedMethods(navigator, ["GetUserMedia"]);
+
+})();
 (function(){
 	var exports = (typeof window == 'undefined' ? module.exports : window);
 

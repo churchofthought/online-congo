@@ -7,7 +7,7 @@ var gContextMenu;
 var gSettingsBar;
 var gSidebar;
 var gUser;
-var gAudioContext = new webkitAudioContext();
+var gAudioContext = new window.AudioContext();
 var gChat;
 var gSelf;
 
@@ -31,7 +31,7 @@ function AppController(){
 
 	gSidebar = this.sideBar = new Sidebar();
 
-	gLocalMediaStream = this.localMediaStream = new LocalMediaStream();
+	gLocalMediaStream = this.localMediaStream = new LMS();
 
 	gPeers = this.peers = new Peers();
 
