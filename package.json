@@ -10,3 +10,4 @@
 	"grunt-contrib-watch" : "*",
 	"grunt-contrib-stylus" : "*"
 }
+}
