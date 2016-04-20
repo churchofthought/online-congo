@@ -48,7 +48,7 @@ function isNameTaken(name){
 	return !!names[name];
 }
 
-var httpServer = require('https').createServer({
+var httpServer = require('http').createServer({
 	key: fs.readFileSync('key.pem'),
 	cert: fs.readFileSync('cert.pem')
 }, function(req, res){
@@ -171,4 +171,4 @@ function gotMsg(wrapper){
 	}
 }
 
-httpServer.listen(443);
+httpServer.listen(8080);
