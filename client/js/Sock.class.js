@@ -1,6 +1,6 @@
 function Sock(){
 	this.sock = new WebSocket(
-		"wss://" + document.domain
+		"ws://" + document.domain
 	);
 };
 
