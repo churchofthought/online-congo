@@ -48,10 +48,7 @@ function isNameTaken(name){
 	return !!names[name];
 }
 
-var httpServer = require('http').createServer({
-	key: fs.readFileSync('key.pem'),
-	cert: fs.readFileSync('cert.pem')
-}, function(req, res){
+var httpServer = require('http').createServer(function(req, res){
 	if (banned[req.connection.remoteAddress]){
 		res.end("You're banned!");
 		return;
